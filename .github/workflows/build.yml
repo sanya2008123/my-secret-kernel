@@ -51,8 +51,6 @@ jobs:
         working-directory: ./${{ env.KERNEL_LOC_DIR }}/${{ env.KERNEL_NAME }}
         run: |
           echo "🔧 Patching serial to a7c2e91b"
-          
-          # 1. Подмена в init/main.c (cmdline + bootconfig) через early_initcall
           python3 << 'PYEOF'
           import os
           with open('init/main.c', 'r') as f: content = f.read()
@@ -61,13 +59,10 @@ jobs:
           static int __init fixup_serial(void)
           {
               char *p;
-              /* 1. Патчим cmdline */
               p = strstr(boot_command_line, "androidboot.serialno=");
               if (p) memcpy(p + 21, "a7c2e91b", 8);
               p = strstr(saved_command_line, "androidboot.serialno=");
               if (p) memcpy(p + 21, "a7c2e91b", 8);
-              
-              /* 2. Патчим bootconfig (самое важное для Android 13) */
               extern char *common_boot_config;
               if (common_boot_config) {
                   p = strstr(common_boot_config, "androidboot.serialno");
@@ -80,24 +75,15 @@ jobs:
           }
           early_initcall(fixup_serial);
           '''
-          # Убираем static у common_boot_config, чтобы наша функция его видела
           content = content.replace('static char *common_boot_config;', 'char *common_boot_config;')
-          # Дописываем функцию в конец файла
           with open('init/main.c', 'w') as f: f.write(content + '\n' + spoof)
           PYEOF
-          
-          # 2. Подмена socinfo для Qualcomm
           if [ -f "drivers/soc/qcom/socinfo.c" ]; then
             sed -i 's/le32_to_cpu(socinfo->serial_num)/0xa7c2e91b/g' drivers/soc/qcom/socinfo.c
-            echo "✓ Patched socinfo.c"
           fi
-          
-          # 3. Подмена USB serial для ADB
           if [ -f "drivers/usb/gadget/composite.c" ]; then
             sed -i 's/copy_to_user(un->serial_number, serial, len)/copy_to_user(un->serial_number, "a7c2e91b", 9)/g' drivers/usb/gadget/composite.c
-            echo "✓ Patched composite.c"
           fi
-          
           echo "✅ Serial spoof applied"
 
       - name: "📥 Initialize AOSP repo and toolchains"
@@ -114,10 +100,7 @@ jobs:
           rm -rf prebuilts/clang/host/linux-x86/clang-3289846
           rm -rf prebuilts/clang/host/linux-x86/clang-r450784e
           rm -rf prebuilts/clang/host/linux-x86/clang-stable
-          sed -i \
-            -e 's/^BRANCH=.*/BRANCH=android13-5.15/' \
-            -e 's/^CLANG_VERSION=.*/CLANG_VERSION=r547379/' \
-            ${{ env.KERNEL_LOC_DIR }}/${{ env.KERNEL_NAME }}/build.config.constants
+          sed -i -e 's/^BRANCH=.*/BRANCH=android13-5.15/' -e 's/^CLANG_VERSION=.*/CLANG_VERSION=r547379/' ${{ env.KERNEL_LOC_DIR }}/${{ env.KERNEL_NAME }}/build.config.constants
           sed -i '/^POST_DEFCONFIG_CMDS="check_defconfig"/d' ${{ env.KERNEL_LOC_DIR }}/${{ env.KERNEL_NAME }}/build.config.gki || true
 
       - name: "🧩 Configure kernel & patches"
@@ -133,11 +116,7 @@ jobs:
             patch -p1 < "$file" || echo "::warning::Hunks failed in $file"
             rm -f "$file"
           }
-          for p in \
-            "https://raw.githubusercontent.com/topnotchfreaks/kernel_patches/main/0001-gki-fixup.patch" \
-            "https://raw.githubusercontent.com/topnotchfreaks/kernel_patches/main/0001-scripts-sign-builds.patch" \
-            "https://raw.githubusercontent.com/topnotchfreaks/kernel_patches/main/0001-scripts-Don-t-append-and-dirty-to-localversion.patch" \
-            "https://raw.githubusercontent.com/topnotchfreaks/kernel_patches/main/0001-scripts-do-not-ship-full-auto_localversion.patch"; do
+          for p in "https://raw.githubusercontent.com/topnotchfreaks/kernel_patches/main/0001-gki-fixup.patch" "https://raw.githubusercontent.com/topnotchfreaks/kernel_patches/main/0001-scripts-sign-builds.patch" "https://raw.githubusercontent.com/topnotchfreaks/kernel_patches/main/0001-scripts-Don-t-append-and-dirty-to-localversion.patch" "https://raw.githubusercontent.com/topnotchfreaks/kernel_patches/main/0001-scripts-do-not-ship-full-auto_localversion.patch"; do
             apply_patch "$p"
           done
 
@@ -154,77 +133,35 @@ jobs:
           set -e
           rm -rf ./KernelSU ./drivers/kernelsu ./Wild_KSU
           curl -LSs "https://raw.githubusercontent.com/WildKernels/Wild_KSU/wild/kernel/setup.sh" | bash -s canary
-          if [ ! -d "Wild_KSU" ]; then echo "ERROR: Wild_KSU not found!"; exit 1; fi
+          if [ ! -d "Wild_KSU" ]; then exit 1; fi
           git clone --depth=1 https://gitlab.com/simonpunk/susfs4ksu.git -b gki-android13-5.15
-          if [ ! -d "susfs4ksu" ]; then echo "ERROR: SUSFS clone failed!"; exit 1; fi
-          SUSFS_PATCH="susfs4ksu/kernel_patches/50_add_susfs_in_gki-android13-5.15.patch"
-          if [ -f "$SUSFS_PATCH" ]; then
-            patch -p1 --forward < "$SUSFS_PATCH" || echo "SUSFS patch had issues"
-          fi
+          patch -p1 --forward < susfs4ksu/kernel_patches/50_add_susfs_in_gki-android13-5.15.patch || true
           mkdir -p fs include/linux
           cp -f susfs4ksu/kernel_patches/fs/susfs.c fs/susfs.c
           cp -f susfs4ksu/kernel_patches/include/linux/susfs.h include/linux/susfs.h
-          cp -f susfs4ksu/kernel_patches/include/linux/susfs_def.h include/linux/susfs_def.h || true
-          if [ -d "susfs4ksu/kernel_patches/KernelSU/kernel" ]; then
-            cp -rf susfs4ksu/kernel_patches/KernelSU/kernel/* Wild_KSU/kernel/ || true
-          fi
-          KSU_PATCH="susfs4ksu/kernel_patches/KernelSU/10_enable_susfs_for_ksu.patch"
-          KSU_C="Wild_KSU/kernel/ksu.c"
-          if ! grep -q "susfs_init" "$KSU_C" 2>/dev/null; then
-            if [ -f "$KSU_PATCH" ]; then
-              cd Wild_KSU && patch -p1 --forward < "../$KSU_PATCH" && cd .. || cd ..
-            fi
-            if ! grep -q "susfs_init" "$KSU_C"; then
-              sed -i '/#include <linux\/fs\.h>/a #include <linux/susfs.h>' "$KSU_C"
-              sed -i '/ksu_core_init();/a \\tsusfs_init();' "$KSU_C" || true
-            fi
-          fi
-          if [ ! -L "drivers/kernelsu" ] && [ ! -d "drivers/kernelsu" ]; then
-            ln -sf ../Wild_KSU drivers/kernelsu
-          fi
-          CONFIG_FILE="arch/arm64/configs/${{ env.DEFCONFIG_NAME }}"
-          cat >> "$CONFIG_FILE" << 'EOF'
-CONFIG_KSU=y
-CONFIG_KPROBES=y
-CONFIG_HAVE_KPROBES=y
-CONFIG_KPROBE_EVENTS=y
-CONFIG_OVERLAY_FS=y
-CONFIG_KSU_SUSFS=y
-CONFIG_KSU_SUSFS_HAS_MAGIC_MOUNT=y
-CONFIG_KSU_SUSFS_SUS_PATH=y
-CONFIG_KSU_SUSFS_SUS_MOUNT=y
-CONFIG_KSU_SUSFS_AUTO_ADD_SUS_KSU_DEFAULT_MOUNT=y
-CONFIG_KSU_SUSFS_AUTO_ADD_SUS_BIND_MOUNT=y
-CONFIG_KSU_SUSFS_SUS_KSTAT=y
-CONFIG_KSU_SUSFS_TRY_UMOUNT=y
-CONFIG_KSU_SUSFS_AUTO_ADD_TRY_UMOUNT_FOR_BIND_MOUNT=y
-CONFIG_KSU_SUSFS_SPOOF_UNAME=y
-CONFIG_KSU_SUSFS_ENABLE_LOG=y
-CONFIG_KSU_SUSFS_HIDE_KSU_SUSFS_SYMBOLS=y
-CONFIG_KSU_SUSFS_SPOOF_CMDLINE_OR_BOOTCONFIG=y
-CONFIG_KSU_SUSFS_OPEN_REDIRECT=y
-CONFIG_KSU_SUSFS_SUS_SU=y
-EOF
+          cp -rf susfs4ksu/kernel_patches/KernelSU/kernel/* Wild_KSU/kernel/ || true
+          sed -i '/#include <linux\/fs\.h>/a #include <linux/susfs.h>' Wild_KSU/kernel/ksu.c
+          sed -i '/ksu_core_init();/a \\tsusfs_init();' Wild_KSU/kernel/ksu.c || true
+          [ ! -L "drivers/kernelsu" ] && ln -sf ../Wild_KSU drivers/kernelsu
+          cat >> arch/arm64/configs/${{ env.DEFCONFIG_NAME }} << 'EOF'
+          CONFIG_KSU=y
+          CONFIG_KPROBES=y
+          CONFIG_OVERLAY_FS=y
+          CONFIG_KSU_SUSFS=y
+          CONFIG_KSU_SUSFS_HAS_MAGIC_MOUNT=y
+          CONFIG_KSU_SUSFS_SPOOF_CMDLINE_OR_BOOTCONFIG=y
+          EOF
           rm -rf susfs4ksu
-          echo "Wild-KSU with SUSFS integrated!"
 
       - name: "⚙️ Setup basic configs"
         working-directory: ${{ env.KERNEL_LOC_DIR }}/${{ env.KERNEL_NAME }}
         run: |
-          CONFIG_FILE="./arch/arm64/configs/${{ env.DEFCONFIG_NAME }}"
-          cat >> "$CONFIG_FILE" << 'EOF'
-CONFIG_CC_OPTIMIZE_FOR_PERFORMANCE=y
-CONFIG_TCP_CONG_ADVANCED=y
-CONFIG_TCP_CONG_BIC=n
-CONFIG_TCP_CONG_WESTWOOD=y
-CONFIG_TCP_CONG_HTCP=n
-CONFIG_TCP_CONG_BBR=y
-CONFIG_DEFAULT_WESTWOOD=y
-CONFIG_OVERLAY_FS=y
-CONFIG_TMPFS_XATTR=y
-CONFIG_TMPFS_POSIX_ACL=y
-CONFIG_KALLSYMS=y
-EOF
+          cat >> arch/arm64/configs/${{ env.DEFCONFIG_NAME }} << 'EOF'
+          CONFIG_CC_OPTIMIZE_FOR_PERFORMANCE=y
+          CONFIG_TCP_CONG_BBR=y
+          CONFIG_DEFAULT_WESTWOOD=y
+          CONFIG_KALLSYMS=y
+          EOF
 
       - name: "📝 Append custom Makefile line"
         working-directory: ${{ env.KERNEL_LOC_DIR }}/${{ env.KERNEL_NAME }}
@@ -234,9 +171,7 @@ EOF
       - name: "🔨 Build kernel"
         working-directory: ${{ env.WORK_DIR }}
         run: |
-          LTO=full \
-          BUILD_CONFIG=${{ env.KERNEL_LOC_DIR }}/${{ env.KERNEL_NAME }}/build.config.gki.aarch64 \
-          build/build.sh -j$(nproc --all)
+          LTO=full BUILD_CONFIG=${{ env.KERNEL_LOC_DIR }}/${{ env.KERNEL_NAME }}/build.config.gki.aarch64 build/build.sh -j$(nproc --all)
 
       - name: "📁 Copy kernel image"
         working-directory: ${{ env.WORK_DIR }}/out/dist
@@ -249,15 +184,11 @@ EOF
           git clone --depth=1 https://github.com/topnotchfreaks/AnyKernel3 -b YASK AnyKernel3
           cp out/dist/${{ env.OUTPUT_NAME }} AnyKernel3/Image
           cd AnyKernel3
-          ZIP_NAME="YASK-GKI-Secret_$(date +'%Y-%m-%d').zip"
-          zip -r9 "../$ZIP_NAME" * -x .git/*
-          cd ..
-          echo "ZIP_NAME=$ZIP_NAME" >> $GITHUB_ENV
-          echo "✅ AnyKernel3 ZIP created: $ZIP_NAME"
+          zip -r9 "../YASK-GKI-Secret_$(date +'%Y-%m-%d').zip" * -x .git/*
 
       - name: "📤 Upload flashable ZIP"
         uses: actions/upload-artifact@v4
         with:
           name: YASK-GKI-Secret-AK3
-          path: ${{ env.ZIP_NAME }}
+          path: "*.zip"
           retention-days: 7
