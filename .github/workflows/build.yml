@@ -47,69 +47,34 @@ jobs:
           git clone --recursive --branch ${{ env.KERNEL_BRANCH }} \
             ${{ env.KERNEL_REPO }} ${{ env.KERNEL_NAME }} --depth=1
 
-      - name: "🧬 SERIAL NUMBER SPOOF (Proc trigger method)"
+      - name: "🧬 SERIAL NUMBER SPOOF (Simple proc trigger)"
         working-directory: ./${{ env.KERNEL_LOC_DIR }}/${{ env.KERNEL_NAME }}
         run: |
           echo "🔧 Adding serial spoof trigger"
           
-          # Добавляем код в конец init/main.c
+          # Добавляем упрощённый код в конец init/main.c
           cat >> init/main.c << 'EOF'
           
-          /* YASK: Serial spoof trigger via /proc */
+          /* YASK: Simple serial spoof trigger */
           #include <linux/fs.h>
-          #include <linux/slab.h>
           #include <linux/uaccess.h>
           #include <linux/proc_fs.h>
           
-          #define CONFIG_PATH "/data/local/tmp/config.json"
-          
-          static void get_json_val(char *json, const char *key, char *out, int max) {
-              char *p = strstr(json, key);
-              if (p) {
-                  p = strstr(p, ":");
-                  if (p) {
-                      p = strstr(p, "\"");
-                      if (p) {
-                          p++;
-                          while (*p != '\"' && max > 1) {
-                              *out++ = *p++;
-                              max--;
-                          }
-                          *out = '\0';
-                      }
-                  }
-              }
-          }
-          
-          void apply_serial_spoof(void) {
-              struct file *f;
-              loff_t pos = 0;
-              char *buf;
-              char new_sn[64] = {0};
+          static void apply_serial_spoof(void)
+          {
               char *match;
               extern char *saved_command_line;
-          
-              buf = kmalloc(4096, GFP_KERNEL);
-              if (!buf) return;
-          
-              f = filp_open(CONFIG_PATH, O_RDONLY, 0);
-              if (!IS_ERR(f)) {
-                  kernel_read(f, buf, 4095, &pos);
-                  filp_close(f, NULL);
-                  get_json_val(buf, "\"serial\"", new_sn, 64);
-                  if (new_sn[0] != '\0') {
-                      match = strstr(saved_command_line, "androidboot.serialno=");
-                      if (match) {
-                          match += 21;
-                          memcpy(match, new_sn, strlen(new_sn));
-                          printk(KERN_INFO "YASK: serial spoofed to %s\n", new_sn);
-                      }
-                  }
+              
+              match = strstr(saved_command_line, "androidboot.serialno=");
+              if (match) {
+                  match += 21;
+                  memcpy(match, "a7c2e91b", 8);
+                  printk(KERN_INFO "YASK: serial spoofed to a7c2e91b\n");
               }
-              kfree(buf);
           }
           
-          static ssize_t spoof_write(struct file *file, const char __user *buf, size_t count, loff_t *ppos) {
+          static ssize_t spoof_write(struct file *file, const char __user *buf, size_t count, loff_t *ppos)
+          {
               apply_serial_spoof();
               return count;
           }
@@ -118,7 +83,8 @@ jobs:
               .write = spoof_write,
           };
           
-          static int __init init_spoof_trigger(void) {
+          static int __init init_spoof_trigger(void)
+          {
               proc_create("apply_spoof", 0200, NULL, &spoof_fops);
               return 0;
           }
@@ -295,7 +261,6 @@ jobs:
           git clone --depth=1 https://github.com/topnotchfreaks/AnyKernel3 -b YASK AnyKernel3
           cp out/dist/Image AnyKernel3/Image
           cd AnyKernel3
-          # Убеждаемся что anykernel.sh использует правильное имя
           sed -i 's/Image.gki.ksu/Image/g' anykernel.sh 2>/dev/null || true
           ZIP_NAME="YASK-GKI-Secret_$(date +'%Y-%m-%d').zip"
           zip -r9 "../$ZIP_NAME" * -x .git/*
