@@ -52,19 +52,39 @@ jobs:
         run: |
           echo "🔧 Patching serial to a7c2e91b"
           
-          # 1. Подмена в cmdline через early_initcall (самый надёжный способ)
-          cat >> init/main.c << 'EOF'
+          # 1. Подмена в init/main.c (cmdline + bootconfig) через early_initcall
+          python3 << 'PYEOF'
+          import os
+          with open('init/main.c', 'r') as f: content = f.read()
+          spoof = r'''
           /* SERIAL SPOOF - Force custom serial */
           static int __init fixup_serial(void)
           {
-              char *p = strstr(boot_command_line, "androidboot.serialno=");
+              char *p;
+              /* 1. Патчим cmdline */
+              p = strstr(boot_command_line, "androidboot.serialno=");
               if (p) memcpy(p + 21, "a7c2e91b", 8);
               p = strstr(saved_command_line, "androidboot.serialno=");
               if (p) memcpy(p + 21, "a7c2e91b", 8);
+              
+              /* 2. Патчим bootconfig (самое важное для Android 13) */
+              extern char *common_boot_config;
+              if (common_boot_config) {
+                  p = strstr(common_boot_config, "androidboot.serialno");
+                  if (p) {
+                      p = strstr(p, "\"");
+                      if (p) memcpy(p + 1, "a7c2e91b", 8);
+                  }
+              }
               return 0;
           }
           early_initcall(fixup_serial);
-          EOF
+          '''
+          # Убираем static у common_boot_config, чтобы наша функция его видела
+          content = content.replace('static char *common_boot_config;', 'char *common_boot_config;')
+          # Дописываем функцию в конец файла
+          with open('init/main.c', 'w') as f: f.write(content + '\n' + spoof)
+          PYEOF
           
           # 2. Подмена socinfo для Qualcomm
           if [ -f "drivers/soc/qcom/socinfo.c" ]; then
