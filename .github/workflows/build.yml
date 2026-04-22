@@ -1,4 +1,4 @@
-name: "Build YASK GKI (FULL Restore)"
+name: "Build YASK GKI (Serial Spoof)"
 
 env:
   OUT_DIR: "out"
@@ -50,12 +50,10 @@ jobs:
       - name: "🧬 SERIAL NUMBER SPOOF (a7c2e91b)"
         working-directory: ./${{ env.KERNEL_LOC_DIR }}/${{ env.KERNEL_NAME }}
         run: |
-          # 1. Патчим init/main.c — подмена в bootconfig и cmdline
+          # 1. Патчим init/main.c — максимально надежный способ подмены Phone Serial
           python3 << 'PYEOF'
           import os
           with open('init/main.c', 'r') as f: content = f.read()
-          
-          # Наш код подмены (без extern, так как мы внутри файла)
           spoof = r'''
           {
               char *p;
@@ -70,21 +68,29 @@ jobs:
               }
           }
           '''
-          
-          # Вставляем перед выводом баннера (гарантированная точка)
-          target = 'pr_notice("%s", linux_banner);'
+          target = 'setup_arch(&command_line);'
           if target in content:
               content = content.replace(target, spoof + '\n\t' + target)
               with open('init/main.c', 'w') as f: f.write(content)
-              print('✔ Phone Serial spoof injected')
-          else:
-              print('✖ ERROR: Injection point not found')
+              print('OK: Phone Serial spoof injected')
           PYEOF
 
-          # 2. Патчим USB — чтобы ADB на компе видел новый ID
-          sed -i 's/copy_to_user(un->serial_number, serial, len)/copy_to_user(un->serial_number, "a7c2e91b", 9)/g' drivers/usb/gadget/composite.c || echo "Skip USB patch"
+          # 2. Патчим socinfo.c — подмена SoC серийника (процессора)
+          python3 << 'PYEOF2'
+          import os
+          path = 'drivers/soc/qcom/socinfo.c'
+          if os.path.exists(path):
+              with open(path, 'r') as f: data = f.read()
+              if 'le32_to_cpu(socinfo->serial_num)' in data:
+                  data = data.replace('le32_to_cpu(socinfo->serial_num)', '0xa7c2e91b')
+                  with open(path, 'w') as f: f.write(data)
+                  print('OK: SoC serial patched')
+          PYEOF2
 
-          echo "Done: Serial spoof applied"
+          # 3. Патчим USB — чтобы ADB на компе видел новый ID
+          sed -i 's/copy_to_user(un->serial_number, serial, len)/copy_to_user(un->serial_number, "a7c2e91b", 8)/g' drivers/usb/gadget/composite.c || echo "Skip USB"
+
+          echo "Done: Full Serial spoof applied"
 
       - name: "📥 Initialize AOSP repo and toolchains"
         working-directory: ${{ env.WORK_DIR }}
