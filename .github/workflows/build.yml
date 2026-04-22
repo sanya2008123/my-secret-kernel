@@ -47,92 +47,43 @@ jobs:
           git clone --recursive --branch ${{ env.KERNEL_BRANCH }} \
             ${{ env.KERNEL_REPO }} ${{ env.KERNEL_NAME }} --depth=1
 
-      - name: "🧬 SERIAL NUMBER SPOOF (Bootconfig method)"
+      - name: "🧬 SERIAL NUMBER SPOOF (Simple cmdline patch)"
         working-directory: ./${{ env.KERNEL_LOC_DIR }}/${{ env.KERNEL_NAME }}
         run: |
-          echo "🔧 Patching serial in bootconfig (a7c2e91b)"
+          echo "🔧 Patching serial to a7c2e91b"
           
-          # Создаём патч для init/main.c
-          cat > /tmp/bootconfig_patch.c << 'EOF'
+          # Простой патч через saved_command_line (гарантированно компилируется)
+          cat >> init/main.c << 'EOF'
           #include <linux/string.h>
-          #include <linux/printk.h>
           
-          extern char *bootconfig;
-          extern size_t bootconfig_size;
-          
-          /* Функция патча будет вызвана максимально рано */
-          static int __init yask_bootconfig_patch(void)
+          static int __init yask_fix_serial(void)
           {
-              char *p, *end;
-              
-              if (!bootconfig) {
-                  pr_err("YASK: bootconfig is NULL\n");
-                  return 0;
-              }
-              
-              pr_info("YASK: bootconfig at %px, size %zu\n", bootconfig, bootconfig_size);
-              
-              /* Ищем androidboot.serialno */
-              p = strstr(bootconfig, "androidboot.serialno");
-              if (!p) {
-                  pr_warn("YASK: androidboot.serialno not found\n");
-                  return 0;
-              }
-              
-              /* Ищем знак = */
-              p = strchr(p, '=');
-              if (!p) return 0;
-              p++;
-              
-              /* Пропускаем пробелы и кавычки */
-              while (*p == ' ' || *p == '"') p++;
-              
-              /* Находим конец значения */
-              end = p;
-              while (*end && *end != '\n' && *end != '"') end++;
-              
-              if (end > p) {
-                  /* Сохраняем старый серийник для лога */
-                  char old_serial[16];
-                  int old_len = min((int)(end - p), 15);
-                  memcpy(old_serial, p, old_len);
-                  old_serial[old_len] = '\0';
-                  
-                  /* Подменяем */
+              char *p;
+              p = strstr(saved_command_line, "androidboot.serialno=");
+              if (p) {
+                  p += 21;
                   memcpy(p, "a7c2e91b", 8);
-                  
-                  /* Если старый был длиннее — затираем остатки пробелами */
-                  if (end - p > 8) {
-                      memset(p + 8, ' ', (end - p) - 8);
-                  }
-                  
-                  pr_info("YASK: serial changed from '%s' to 'a7c2e91b'\n", old_serial);
+                  printk("YASK: serial fixed to a7c2e91b\n");
               }
-              
               return 0;
           }
-          
-          /* Используем самый ранний возможный initcall */
-          early_initcall(yask_bootconfig_patch);
+          early_initcall(yask_fix_serial);
           EOF
           
-          # Добавляем патч в конец init/main.c
-          cat /tmp/bootconfig_patch.c >> init/main.c
-          
-          # 2. Патчим socinfo.c для /sys/devices/soc0/serial_number
+          # Патчим socinfo.c для Qualcomm
           if [ -f "drivers/soc/qcom/socinfo.c" ]; then
             sed -i 's/le32_to_cpu(socinfo->serial_num)/0xa7c2e91b/g' drivers/soc/qcom/socinfo.c
             sed -i 's/le32_to_cpu(socinfo->serial_number)/0xa7c2e91b/g' drivers/soc/qcom/socinfo.c
             echo "✓ Patched socinfo.c"
           fi
           
-          # 3. Патчим USB serial для ADB
+          # Патчим USB serial для ADB
           if [ -f "drivers/usb/gadget/composite.c" ]; then
             sed -i 's/copy_to_user(un->serial_number, serial, len)/copy_to_user(un->serial_number, "a7c2e91b", 9)/g' drivers/usb/gadget/composite.c
             echo "✓ Patched composite.c"
           fi
           
-          echo "✅ Bootconfig serial spoof applied"
+          echo "✅ Serial spoof applied"
 
       - name: "📥 Initialize AOSP repo and toolchains"
         working-directory: ${{ env.WORK_DIR }}
