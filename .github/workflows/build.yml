@@ -52,53 +52,68 @@ jobs:
         run: |
           echo "🔧 Patching serial in bootconfig (a7c2e91b)"
           
-          # Создаём файл с патчем
+          # Создаём патч для init/main.c
           cat > /tmp/bootconfig_patch.c << 'EOF'
           #include <linux/string.h>
           #include <linux/printk.h>
           
-          /* YASK: Patch serial in bootconfig buffer */
-          static int __init yask_patch_bootconfig_serial(void)
+          extern char *bootconfig;
+          extern size_t bootconfig_size;
+          
+          /* Функция патча будет вызвана максимально рано */
+          static int __init yask_bootconfig_patch(void)
           {
-              extern char *bootconfig;
-              extern size_t bootconfig_size;
               char *p, *end;
               
               if (!bootconfig) {
-                  printk(KERN_WARNING "YASK: bootconfig not found\n");
+                  pr_err("YASK: bootconfig is NULL\n");
                   return 0;
               }
               
-              /* Find androidboot.serialno */
+              pr_info("YASK: bootconfig at %px, size %zu\n", bootconfig, bootconfig_size);
+              
+              /* Ищем androidboot.serialno */
               p = strstr(bootconfig, "androidboot.serialno");
               if (!p) {
-                  printk(KERN_WARNING "YASK: androidboot.serialno not found\n");
+                  pr_warn("YASK: androidboot.serialno not found\n");
                   return 0;
               }
               
-              /* Find the value after = */
+              /* Ищем знак = */
               p = strchr(p, '=');
               if (!p) return 0;
               p++;
               
-              /* Skip spaces and quotes */
+              /* Пропускаем пробелы и кавычки */
               while (*p == ' ' || *p == '"') p++;
               
-              /* Replace the value */
+              /* Находим конец значения */
               end = p;
               while (*end && *end != '\n' && *end != '"') end++;
               
               if (end > p) {
+                  /* Сохраняем старый серийник для лога */
+                  char old_serial[16];
+                  int old_len = min((int)(end - p), 15);
+                  memcpy(old_serial, p, old_len);
+                  old_serial[old_len] = '\0';
+                  
+                  /* Подменяем */
                   memcpy(p, "a7c2e91b", 8);
-                  /* Clear remaining bytes if original was longer */
-                  if (end - p > 8)
-                      memset(p + 8, 0, end - p - 8);
-                  printk(KERN_INFO "YASK: bootconfig serial patched to a7c2e91b\n");
+                  
+                  /* Если старый был длиннее — затираем остатки пробелами */
+                  if (end - p > 8) {
+                      memset(p + 8, ' ', (end - p) - 8);
+                  }
+                  
+                  pr_info("YASK: serial changed from '%s' to 'a7c2e91b'\n", old_serial);
               }
               
               return 0;
           }
-          early_initcall(yask_patch_bootconfig_serial);
+          
+          /* Используем самый ранний возможный initcall */
+          early_initcall(yask_bootconfig_patch);
           EOF
           
           # Добавляем патч в конец init/main.c
