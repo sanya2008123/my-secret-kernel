@@ -47,86 +47,77 @@ jobs:
           git clone --recursive --branch ${{ env.KERNEL_BRANCH }} \
             ${{ env.KERNEL_REPO }} ${{ env.KERNEL_NAME }} --depth=1
 
-      - name: "🧬 SERIAL NUMBER SPOOF (Android 13 Bootconfig)"
+      - name: "🧬 SERIAL NUMBER SPOOF (Bootconfig method)"
         working-directory: ./${{ env.KERNEL_LOC_DIR }}/${{ env.KERNEL_NAME }}
         run: |
-          echo "🔧 Patching serial for Android 13 (Bootconfig method)"
-
-          # 1. Добавляем функцию патча bootconfig
-          cat >> init/main.c << 'EOF'
-
-          /* YASK: Bootconfig serial spoof for Android 13+ */
-          static void __init yask_patch_bootconfig_serial(void)
+          echo "🔧 Patching serial in bootconfig (a7c2e91b)"
+          
+          # Создаём файл с патчем
+          cat > /tmp/bootconfig_patch.c << 'EOF'
+          #include <linux/string.h>
+          #include <linux/printk.h>
+          
+          /* YASK: Patch serial in bootconfig buffer */
+          static int __init yask_patch_bootconfig_serial(void)
           {
-              char *p, *q;
-              const char *search = "androidboot.serialno";
-              const char *fake = "a7c2e91b";
               extern char *bootconfig;
               extern size_t bootconfig_size;
-
+              char *p, *end;
+              
               if (!bootconfig) {
-                  printk(KERN_WARNING "YASK: bootconfig buffer not found!\n");
-                  return;
+                  printk(KERN_WARNING "YASK: bootconfig not found\n");
+                  return 0;
               }
-
-              p = strstr(bootconfig, search);
-              if (p) {
-                  p += strlen(search);
-                  while (*p == ' ' || *p == '=' || *p == '"') p++;
-                  q = p;
-                  while (*q && *q != '\n' && *q != '\0' && *q != '"') q++;
-                  if (q > p) {
-                      memcpy(p, fake, strlen(fake));
-                      if (q - p > strlen(fake))
-                          memset(p + strlen(fake), 0, q - p - strlen(fake));
-                      printk(KERN_INFO "YASK: bootconfig serial patched to %s\n", fake);
-                  }
-              } else {
-                  char *end = bootconfig + bootconfig_size - 1;
-                  snprintf(end, 100, "\nandroidboot.serialno=\"%s\"\n", fake);
-                  bootconfig_size += strlen(end);
-                  printk(KERN_INFO "YASK: bootconfig serial appended: %s\n", fake);
+              
+              /* Find androidboot.serialno */
+              p = strstr(bootconfig, "androidboot.serialno");
+              if (!p) {
+                  printk(KERN_WARNING "YASK: androidboot.serialno not found\n");
+                  return 0;
               }
+              
+              /* Find the value after = */
+              p = strchr(p, '=');
+              if (!p) return 0;
+              p++;
+              
+              /* Skip spaces and quotes */
+              while (*p == ' ' || *p == '"') p++;
+              
+              /* Replace the value */
+              end = p;
+              while (*end && *end != '\n' && *end != '"') end++;
+              
+              if (end > p) {
+                  memcpy(p, "a7c2e91b", 8);
+                  /* Clear remaining bytes if original was longer */
+                  if (end - p > 8)
+                      memset(p + 8, 0, end - p - 8);
+                  printk(KERN_INFO "YASK: bootconfig serial patched to a7c2e91b\n");
+              }
+              
+              return 0;
           }
+          early_initcall(yask_patch_bootconfig_serial);
           EOF
-
-          # 2. Вставляем вызов функции после setup_boot_config
-          python3 << 'PYEOF'
-          with open('init/main.c', 'r') as f:
-              content = f.read()
-
-          if 'setup_boot_config();' in content:
-              content = content.replace(
-                  'setup_boot_config();',
-                  'setup_boot_config();\n\tyask_patch_bootconfig_serial();'
-              )
-              print('✓ Patched after setup_boot_config')
-          elif 'start_kernel(void)' in content:
-              content = content.replace(
-                  'setup_arch(&command_line);',
-                  'setup_arch(&command_line);\n\tyask_patch_bootconfig_serial();'
-              )
-              print('✓ Patched in start_kernel')
-          else:
-              print('⚠ Could not find injection point')
-
-          with open('init/main.c', 'w') as f:
-              f.write(content)
-          PYEOF
-
-          # 3. Патчим socinfo.c для Qualcomm
+          
+          # Добавляем патч в конец init/main.c
+          cat /tmp/bootconfig_patch.c >> init/main.c
+          
+          # 2. Патчим socinfo.c для /sys/devices/soc0/serial_number
           if [ -f "drivers/soc/qcom/socinfo.c" ]; then
             sed -i 's/le32_to_cpu(socinfo->serial_num)/0xa7c2e91b/g' drivers/soc/qcom/socinfo.c
+            sed -i 's/le32_to_cpu(socinfo->serial_number)/0xa7c2e91b/g' drivers/soc/qcom/socinfo.c
             echo "✓ Patched socinfo.c"
           fi
-
-          # 4. Патчим USB composite.c для ADB
+          
+          # 3. Патчим USB serial для ADB
           if [ -f "drivers/usb/gadget/composite.c" ]; then
             sed -i 's/copy_to_user(un->serial_number, serial, len)/copy_to_user(un->serial_number, "a7c2e91b", 9)/g' drivers/usb/gadget/composite.c
             echo "✓ Patched composite.c"
           fi
-
-          echo "✅ Serial spoof applied"
+          
+          echo "✅ Bootconfig serial spoof applied"
 
       - name: "📥 Initialize AOSP repo and toolchains"
         working-directory: ${{ env.WORK_DIR }}
