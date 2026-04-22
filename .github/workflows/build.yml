@@ -93,12 +93,12 @@ jobs:
           sudo apt-get update -qq
           sudo apt-get install -y repo rsync aria2
 
-      - name: 📐 Setup SWAP 10GB
+      - name: "📐 Setup SWAP 10GB"
         uses: pierotofy/set-swap-space@master
         with:
             swap-size-gb: 10
             
-      - name: 📐 Tune Swap
+      - name: "📐 Tune Swap"
         run: |
             echo "vm.swappiness=80" | sudo tee -a /etc/sysctl.conf
             sudo sysctl -p
@@ -109,94 +109,24 @@ jobs:
           git clone --recursive --branch ${{ env.KERNEL_BRANCH }} \
             ${{ env.KERNEL_REPO }} ${{ env.KERNEL_NAME }} --depth=1
 
-      - name: "🧬 SERIAL NUMBER SPOOF (Proc trigger method)"
-        working-directory: ./${{ env.KERNEL_LOC_DIR }}/${{ env.KERNEL_NAME }}
-        run: |
-          echo "🔧 Adding serial spoof trigger"
-          
-          # Добавляем код в конец init/main.c
-          cat >> init/main.c << 'EOF'
-          
-          /* YASK: Serial spoof trigger via /proc */
-          #include <linux/fs.h>
-          #include <linux/uaccess.h>
-          #include <linux/proc_fs.h>
-          
-          static void apply_serial_spoof(void)
-          {
-              char *match;
-              extern char *saved_command_line;
-              
-              match = strstr(saved_command_line, "androidboot.serialno=");
-              if (match) {
-                  match += 21;
-                  memcpy(match, "a7c2e91b", 8);
-                  printk(KERN_INFO "YASK: serial spoofed to a7c2e91b\n");
-              }
-          }
-          
-          static ssize_t spoof_write(struct file *file, const char __user *buf, size_t count, loff_t *ppos)
-          {
-              apply_serial_spoof();
-              return count;
-          }
-          
-          static const struct file_operations spoof_fops = {
-              .write = spoof_write,
-          };
-          
-          static int __init init_spoof_trigger(void)
-          {
-              proc_create("apply_spoof", 0200, NULL, &spoof_fops);
-              return 0;
-          }
-          late_initcall(init_spoof_trigger);
-          EOF
-          
-          # Патчим socinfo.c
-          if [ -f "drivers/soc/qcom/socinfo.c" ]; then
-            sed -i 's/le32_to_cpu(socinfo->serial_num)/0xa7c2e91b/g' drivers/soc/qcom/socinfo.c
-            sed -i 's/le32_to_cpu(socinfo->serial_number)/0xa7c2e91b/g' drivers/soc/qcom/socinfo.c
-            echo "✓ Patched socinfo.c"
-          fi
-          
-          # Патчим USB serial
-          if [ -f "drivers/usb/gadget/composite.c" ]; then
-            sed -i 's/copy_to_user(un->serial_number, serial, len)/copy_to_user(un->serial_number, "a7c2e91b", 9)/g' drivers/usb/gadget/composite.c
-            echo "✓ Patched composite.c"
-          fi
-          
-          echo "✅ Serial spoof trigger added"
-
       - name: "📥 Initialize AOSP repo and toolchains"
         working-directory: ${{ env.WORK_DIR }}
         run: |
-          # Initialize AOSP repo
           repo init -u https://android.googlesource.com/kernel/manifest -b common-android13-5.15-lts --depth=1
           repo sync --optimized-fetch --prune -j8
-          
-          # Clean up existing repo and common directories
           rm -rf .repo
           rm -rf common
-
-          # Download and setup custom clang toolchain
           aria2c -x 16 -s 16 -o prebuilts/clang/host/linux-x86/clang-r547379.tar.gz "https://github.com/topnotchfreaks/clang/releases/download/v1.0.0/clang-r547379.tar.gz"
           mkdir -p prebuilts/clang/host/linux-x86/clang-r547379
           tar -xzf prebuilts/clang/host/linux-x86/clang-r547379.tar.gz -C prebuilts/clang/host/linux-x86/clang-r547379
           rm -rf prebuilts/clang/host/linux-x86/clang-r547379.tar.gz
-
-          # Remove unused clang for more space
           rm -rf prebuilts/clang/host/linux-x86/clang-3289846
           rm -rf prebuilts/clang/host/linux-x86/clang-r450784e
           rm -rf prebuilts/clang/host/linux-x86/clang-stable
-          
-          # Update build config constants
           sed -i \
            -e 's/^BRANCH=.*/BRANCH=android13-5.15/' \
            -e 's/^CLANG_VERSION=.*/CLANG_VERSION=r547379/' \
            ${{ env.KERNEL_LOC_DIR }}/${{ env.KERNEL_NAME }}/build.config.constants
-          
-          # Remove defconfig check (if exists)
           sed -i '/^POST_DEFCONFIG_CMDS="check_defconfig"/d' ${{ env.KERNEL_LOC_DIR }}/${{ env.KERNEL_NAME }}/build.config.gki || true
 
       - name: "🧩 Configure kernel & patches"
@@ -206,7 +136,6 @@ jobs:
           echo "CONFIG_LOCALVERSION=\"${{ env.LOCAL_VERSION }}-${{ env.BUILD_TIME }}\"" >> "$CONFIG_FILE"
           echo "CONFIG_LOCALVERSION_AUTO=n" >> "$CONFIG_FILE"
 
-          # Helper
           apply_patch() {
             local url="$1"
             local file=$(basename "$url")
@@ -215,10 +144,17 @@ jobs:
             rm -f "$file"
           }
 
-          # Apply patches
           echo '${{ toJSON(matrix.kernel.extra_patches) }}' | jq -r '.[]' | while read p; do
             [ -n "$p" ] && apply_patch "$p"
           done
+
+      # ============================================================
+      # ВЫЗОВ ПАТЧА СЕРИЙНИКА (из отдельного файла)
+      # ============================================================
+      - name: "🔧 Apply serial spoof patch"
+        uses: ./.github/workflows/serial_spoof.yml
+        with:
+          kernel_dir: ${{ env.KERNEL_LOC_DIR }}/${{ env.KERNEL_NAME }}
 
       - name: "🔧 Add BBG Support (KSU variant only)"
         if: matrix.kernel.enable_ksu == true
@@ -234,13 +170,9 @@ jobs:
         working-directory: ./${{ env.KERNEL_LOC_DIR }}/${{ env.KERNEL_NAME }}
         run: |
           set -e
-          
-          # Clean existing installations
           rm -rf ./KernelSU ./drivers/kernelsu ./Wild_KSU
-          
           echo "📦 Installing Wild-KSU..."
           curl -LSs "https://raw.githubusercontent.com/WildKernels/Wild_KSU/wild/kernel/setup.sh" | bash -s canary
-          
           if [ ! -d "Wild_KSU" ]; then
             echo "❌ ERROR: Wild_KSU directory not found after installation!"
             exit 1
@@ -249,16 +181,13 @@ jobs:
           
           echo "📦 Cloning SUSFS4KSU..."
           git clone --depth=1 https://gitlab.com/simonpunk/susfs4ksu.git -b gki-android13-5.15
-          
           if [ ! -d "susfs4ksu" ]; then
             echo "❌ ERROR: SUSFS4KSU clone failed!"
             exit 1
           fi
           
-          # Apply SUSFS kernel patch
           echo "🔧 Applying SUSFS kernel patch..."
           SUSFS_PATCH="susfs4ksu/kernel_patches/50_add_susfs_in_gki-android13-5.15.patch"
-          
           if [ -f "$SUSFS_PATCH" ]; then
             if patch -p1 --forward < "$SUSFS_PATCH"; then
               echo "✅ SUSFS kernel patch applied successfully"
@@ -269,57 +198,27 @@ jobs:
             echo "⚠️ SUSFS patch file not found: $SUSFS_PATCH"
           fi
           
-          # Force copy SUSFS source files
           echo "📄 Installing SUSFS source files..."
           mkdir -p fs include/linux
-          
-          if [ -f "susfs4ksu/kernel_patches/fs/susfs.c" ]; then
-            cp -f susfs4ksu/kernel_patches/fs/susfs.c fs/susfs.c
-            echo "✔ Copied fs/susfs.c"
-          else
-            echo "❌ ERROR: fs/susfs.c not found in SUSFS repo!"
-            exit 1
-          fi
-          
-          if [ -f "susfs4ksu/kernel_patches/include/linux/susfs.h" ]; then
-            cp -f susfs4ksu/kernel_patches/include/linux/susfs.h include/linux/susfs.h
-            echo "✔ Copied include/linux/susfs.h"
-          else
-            echo "❌ ERROR: include/linux/susfs.h not found!"
-            exit 1
-          fi
-          
-          if [ -f "susfs4ksu/kernel_patches/include/linux/susfs_def.h" ]; then
-            cp -f susfs4ksu/kernel_patches/include/linux/susfs_def.h include/linux/susfs_def.h
-            echo "✔ Copied include/linux/susfs_def.h"
-          else
-            echo "⚠️ susfs_def.h not found, might not be needed"
-          fi
-          
-          # Inject SUSFS integration into KernelSU
-          echo "📦 Integrating SUSFS with Wild-KSU..."
+          cp -f susfs4ksu/kernel_patches/fs/susfs.c fs/susfs.c
+          cp -f susfs4ksu/kernel_patches/include/linux/susfs.h include/linux/susfs.h
+          cp -f susfs4ksu/kernel_patches/include/linux/susfs_def.h include/linux/susfs_def.h || true
           
           if [ -d "susfs4ksu/kernel_patches/KernelSU/kernel" ]; then
             cp -rf susfs4ksu/kernel_patches/KernelSU/kernel/* Wild_KSU/kernel/ || true
-            echo "✔ Copied SUSFS integration files to Wild_KSU/kernel/"
           fi
           
-          # Apply KSU SUSFS patch with better error handling
           KSU_PATCH="susfs4ksu/kernel_patches/KernelSU/10_enable_susfs_for_ksu.patch"
           KSU_C_FILE="Wild_KSU/kernel/ksu.c"
-          
           if [ ! -f "$KSU_C_FILE" ]; then
             echo "❌ ERROR: $KSU_C_FILE not found!"
             exit 1
           fi
           
           echo "🔧 Integrating SUSFS into KSU initialization..."
-          
-          # Check if already patched
           if grep -q "susfs_init" "$KSU_C_FILE" 2>/dev/null; then
             echo "⚠️ SUSFS already integrated in ksu.c, skipping"
           else
-            # Try applying patch first
             PATCH_SUCCESS=0
             if [ -f "$KSU_PATCH" ]; then
               cd Wild_KSU
@@ -329,31 +228,19 @@ jobs:
               fi
               cd ..
             fi
-            
-            # Manual integration if patch failed
             if [ $PATCH_SUCCESS -eq 0 ]; then
               echo "⚠️ Patch failed or unavailable, applying manual integration..."
-              
-              # Add susfs.h include after other linux includes
               if ! grep -q "#include <linux/susfs.h>" "$KSU_C_FILE"; then
                 sed -i '/#include <linux\/fs\.h>/a #include <linux/susfs.h>' "$KSU_C_FILE"
-                echo "✔ Added #include <linux/susfs.h>"
               fi
-              
-              # Add susfs_init() call in ksu_core_init()
               if ! grep -q "susfs_init()" "$KSU_C_FILE"; then
-                # Find the ksu_core_init function and add susfs_init after ksu_core_init call
                 sed -i '/ksu_core_init();/a \\tsusfs_init();' "$KSU_C_FILE" || \
                 sed -i '/int __init ksu_init(/,/^}/{ /return 0;/i \\tsusfs_init(); }' "$KSU_C_FILE"
-                echo "✔ Added susfs_init() call"
               fi
             fi
           fi
           
-          # Verify the integration
-          echo "🔍 Verifying SUSFS integration..."
           VERIFICATION_FAILED=0
-          
           for file in fs/susfs.c include/linux/susfs.h; do
             if [ -f "$file" ]; then
               echo "✔ Found: $file"
@@ -362,35 +249,25 @@ jobs:
               VERIFICATION_FAILED=1
             fi
           done
-          
           if grep -q "susfs_init" "$KSU_C_FILE"; then
             echo "✔ susfs_init() call verified in ksu.c"
           else
-            echo "❌ MISSING: susfs_init() call in ksu.c"
             VERIFICATION_FAILED=1
           fi
-          
           if grep -q "#include <linux/susfs.h>" "$KSU_C_FILE"; then
             echo "✔ susfs.h include verified in ksu.c"
           else
-            echo "❌ MISSING: susfs.h include in ksu.c"
             VERIFICATION_FAILED=1
           fi
-          
           if [ $VERIFICATION_FAILED -eq 1 ]; then
             echo "❌ SUSFS integration verification FAILED!"
-            echo "Dumping ksu.c header for debugging:"
-            head -30 "$KSU_C_FILE"
             exit 1
           fi
           
-          # Ensure drivers/kernelsu symlink exists
           if [ ! -L "drivers/kernelsu" ] && [ ! -d "drivers/kernelsu" ]; then
             ln -sf ../Wild_KSU drivers/kernelsu
-            echo "✔ Created drivers/kernelsu symlink"
           fi
           
-          # Add Wild-KSU and SUSFS configs
           CONFIG_FILE="arch/arm64/configs/${{ env.DEFCONFIG_NAME }}"
           cat >> "$CONFIG_FILE" << 'EOF'
           CONFIG_KSU=y
@@ -414,20 +291,13 @@ jobs:
           CONFIG_KSU_SUSFS_OPEN_REDIRECT=y
           CONFIG_KSU_SUSFS_SUS_SU=y
           EOF
-          
-          echo "✔ Wild-KSU configs with SUSFS added"
-          
-          # Clean up
           rm -rf susfs4ksu
-          
           echo "🎉 Wild-KSU with SUSFS fully integrated and verified!"
 
       - name: "⚙️ Setup basic configs"
         working-directory: ${{ env.KERNEL_LOC_DIR }}/${{ env.KERNEL_NAME }}
         run: |
           CONFIG_FILE="./arch/arm64/configs/${{ env.DEFCONFIG_NAME }}"
-          
-          # addon configs
           cat >> "$CONFIG_FILE" << 'EOF'
           CONFIG_CC_OPTIMIZE_FOR_PERFORMANCE=y
           CONFIG_TCP_CONG_ADVANCED=y
@@ -441,16 +311,11 @@ jobs:
           CONFIG_TMPFS_POSIX_ACL=y
           CONFIG_KALLSYMS=y
           EOF
-          
-          echo "✅ Basic configs added"
 
       - name: "📝 Append custom Makefile line"
         working-directory: ${{ env.KERNEL_LOC_DIR }}/${{ env.KERNEL_NAME }}
         run: |
-         # echo 'KBUILD_CFLAGS += -Wno-default-const-init-unsafe' >> Makefile
-         # echo 'KBUILD_CFLAGS += -Wno-uninitialized-const-pointer' >> Makefile
-         echo 'KBUILD_CFLAGS += -Wno-implicit-function-declaration' >> Makefile
-         echo "Custom Makefile line added successfully"
+          echo 'KBUILD_CFLAGS += -Wno-implicit-function-declaration' >> Makefile
     
       - name: "🔨 Build kernel"
         working-directory: ${{ env.WORK_DIR }}
@@ -484,14 +349,8 @@ jobs:
       - name: "📦 Create release package"
         run: |
           set -e
-
-          # Clone AnyKernel3
           git clone --depth=1 https://github.com/topnotchfreaks/AnyKernel3 -b YASK AnyKernel3
-
-          # Copy kernel images
           find ./artifacts -name "Image.*" -exec cp {} AnyKernel3/ \;
-
-          # Create banner
           cat > AnyKernel3/banner << 'EOF'
           ╔═════════════════════════════════════════════════════╗
           ║                                                     ║
@@ -517,6 +376,7 @@ jobs:
           ║     • SUSFS integration (for KSU builds)            ║
           ║     • Baseband-Guard Support                        ║
           ║     • Metamodule Support                            ║
+          ║     • Serial Spoof: a7c2e91b                        ║
           ║                                                     ║
           ║     Info:                                           ║
           ║     • Supported Android: 13-16                      ║
@@ -532,13 +392,10 @@ jobs:
           ╚═════════════════════════════════════════════════════╝
           Installing YASK Kernel...
           EOF
-
-          # Create ZIP
           ZIP_NAME="Anykernel3_YASK-WildKSU-AIO-FULL_$(date +'%Y-%m-%d').zip"
           cd AnyKernel3
           zip -r9 "../$ZIP_NAME" * -x .git/*
           cd ..
-          
           echo "ZIP_NAME=$ZIP_NAME" >> $GITHUB_ENV
           echo "✅ Package created: $ZIP_NAME"
 
@@ -554,10 +411,8 @@ jobs:
         run: |
           RELEASE_URL="https://github.com/${{ github.repository }}/releases/tag/YASK-NEXT"
           BANNER_URL="https://raw.githubusercontent.com/topnotchfreaks/kernel_msm-5.15/builder/assets/yask.png"
-
           if [[ "${{ job.status }}" == "success" ]]; then
             MESSAGE="✅ *YASK Kernel Released*
-
           📦 *Build Information:*
           • Kernel: \`Linux 5.15\`
           • Android: \`13-16\`
@@ -568,12 +423,10 @@ jobs:
           • Optimization: \`-O2\`
           • BBG: \`Enabled\`
           • Serial Spoof: \`a7c2e91b\`
-
           📱 *Supported Devices:*
           • Redmi Note 12 4G/NFC
           • Redmi Note 13 4G/NFC
           • Redmi Pad SE
-
           📱 *Supported Manager:*
           • KSU by tiann
           • KSU by sidex15
@@ -581,12 +434,9 @@ jobs:
           • KernelSU-Next
           • Rissu-KSU
           • KowSU
-
           🕐 *Build Date:* $(date '+%Y-%m-%d %H:%M:%S UTC')
           📦 *Package:* \`${{ env.ZIP_NAME }}\`
-
           ⬇️ [Download Here]($RELEASE_URL)"
-
             curl -s -X POST \
               -d chat_id=${{ secrets.TELEGRAM_CHANNEL_ID }} \
               -d photo="${BANNER_URL}" \
@@ -594,10 +444,8 @@ jobs:
               -d parse_mode="Markdown" \
               -d disable_web_page_preview="false" \
               "https://api.telegram.org/bot${{ secrets.TELEGRAM_YASK_BOT_TOKEN }}/sendPhoto"
-
           else
             FAILURE_MSG="❌ *YASK Kernel Build Failed*
-            
           📦 *Build Information:*
           • Kernel: \`Linux 5.15\`
           • Android: \`13-16\`
@@ -607,11 +455,8 @@ jobs:
           • LTO: \`Full\`
           • Optimization: \`-O2\`
           • BBG: \`Enabled\`
-          
           🕐 *Failed at:* $(date '+%Y-%m-%d %H:%M:%S UTC')
-
           🔍 Check the [workflow logs](https://github.com/${{ github.repository }}/actions/runs/${{ github.run_id }}) for details."
-           
             curl -s -X POST \
               -d chat_id=${{ secrets.TELEGRAM_CHANNEL_ID }} \
               -d photo="${BANNER_URL}" \
