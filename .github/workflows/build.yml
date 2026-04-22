@@ -1,4 +1,4 @@
-name: "Build YASK GKI (Serial Spoof)"
+name: "Build YASK GKI (Bootconfig Serial Spoof)"
 
 env:
   OUT_DIR: "out"
@@ -47,77 +47,62 @@ jobs:
           git clone --recursive --branch ${{ env.KERNEL_BRANCH }} \
             ${{ env.KERNEL_REPO }} ${{ env.KERNEL_NAME }} --depth=1
 
-      - name: "🧬 SERIAL NUMBER SPOOF (a7c2e91b)"
+      - name: "🧬 BOOTCONFIG SERIAL SPOOF (a7c2e91b)"
         working-directory: ./${{ env.KERNEL_LOC_DIR }}/${{ env.KERNEL_NAME }}
         run: |
-          # 1. Патчим init/main.c — подмена серийника в буферах cmdline при загрузке
+          # Патчим init/main.c — теперь бьем точно по bootconfig
           python3 << 'PYEOF'
+          import os
           with open('init/main.c', 'r') as f:
               content = f.read()
 
-          spoof_block = '''
-          /* === SERIAL SPOOF === */
+          # Наш код, который будет работать внутри ядра
+          spoof_block = r'''
+          /* === BOOTCONFIG SERIAL SPOOF START === */
           {
+              extern char *common_boot_config;
               char *p;
-              p = strstr(saved_command_line, "androidboot.serialno=");
-              if (p) { p += 21; memcpy(p, "a7c2e91b", 8); }
-              p = strstr(boot_command_line, "androidboot.serialno=");
-              if (p) { p += 21; memcpy(p, "a7c2e91b", 8); }
+              if (common_boot_config) {
+                  /* Ищем ключ androidboot.serialno */
+                  p = strstr(common_boot_config, "androidboot.serialno");
+                  if (p) {
+                      /* Ищем начало значения после знака = и кавычки */
+                      p = strstr(p, "\"");
+                      if (p) {
+                          p++; /* Переходим к самому номеру */
+                          memcpy(p, "a7c2e91b", 8);
+                          pr_info("SPOOF: Serial replaced in bootconfig buffer!\n");
+                      }
+                  }
+              }
           }
-          /* === END SPOOF === */
+          /* === BOOTCONFIG SERIAL SPOOF END === */
           '''
 
-          # Сначала патчим boot_command_line ДО setup_command_line (чтобы копия тоже была фейковой)
-          pre_spoof = '''
-          /* === PRE-SPOOF: patch boot_command_line before it gets copied === */
-          {
-              char *p = strstr(boot_command_line, "androidboot.serialno=");
-              if (p) { p += 21; memcpy(p, "a7c2e91b", 8); }
-          }
-          '''
-          # Потом патчим saved_command_line ПОСЛЕ setup_command_line (страховка)
-          post_spoof = '''
-          /* === POST-SPOOF: patch saved_command_line after copy === */
-          {
-              char *p = strstr(saved_command_line, "androidboot.serialno=");
-              if (p) { p += 21; memcpy(p, "a7c2e91b", 8); }
-          }
-          '''
-
-          t1 = 'setup_arch(&command_line);'
-          t2 = 'setup_command_line(command_line);'
-          ok = False
-          if t1 in content and t2 in content:
-              content = content.replace(t1, pre_spoof + '\n\t' + t1)
-              content = content.replace(t2, t2 + '\n' + post_spoof)
-              ok = True
-          elif t1 in content:
-              content = content.replace(t1, t1 + '\n' + spoof_block)
-              ok = True
-          if ok:
+          # Вставляем ПОСЛЕ setup_boot_config(), когда буфер уже готов
+          target = 'setup_boot_config();'
+          if target in content:
+              content = content.replace(target, target + '\n' + spoof_block)
               with open('init/main.c', 'w') as f:
                   f.write(content)
-              print('OK: Serial spoof injected (both pre and post)')
+              print('✔ OK: Bootconfig spoof injected after setup_boot_config')
           else:
-              print('WARN: Could not find injection points')
+              print('✖ ERROR: setup_boot_config not found in init/main.c')
           PYEOF
 
-          # 2. Патчим socinfo.c — подмена SoC серийника
+          # Дополнительно патчим socinfo.c (на всякий случай)
           python3 << 'PYEOF2'
           import os
           path = 'drivers/soc/qcom/socinfo.c'
           if os.path.exists(path):
               with open(path, 'r') as f:
                   data = f.read()
-              old = 'le32_to_cpu(socinfo->serial_num)'
-              if old in data:
-                  data = data.replace(old, '0xa7c2e91b')
+              if 'le32_to_cpu(socinfo->serial_num)' in data:
+                  data = data.replace('le32_to_cpu(socinfo->serial_num)', '0xa7c2e91b')
                   with open(path, 'w') as f:
                       f.write(data)
-                  print('OK: SoC serial patched')
+                  print('✔ OK: SoC serial patched')
           PYEOF2
-
-          echo "Done: Serial spoof patches applied"
 
       - name: "📥 Initialize AOSP repo and toolchains"
         working-directory: ${{ env.WORK_DIR }}
@@ -280,4 +265,3 @@ jobs:
           name: YASK-GKI-Secret-AK3
           path: ${{ env.ZIP_NAME }}
           retention-days: 7
-
