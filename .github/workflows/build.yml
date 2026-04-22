@@ -67,21 +67,39 @@ jobs:
           /* === END SPOOF === */
           '''
 
-          target = 'setup_arch(&command_line);'
-          if target in content:
-              content = content.replace(target, target + '\n' + spoof_block)
+          # Сначала патчим boot_command_line ДО setup_command_line (чтобы копия тоже была фейковой)
+          pre_spoof = '''
+          /* === PRE-SPOOF: patch boot_command_line before it gets copied === */
+          {
+              char *p = strstr(boot_command_line, "androidboot.serialno=");
+              if (p) { p += 21; memcpy(p, "a7c2e91b", 8); }
+          }
+          '''
+          # Потом патчим saved_command_line ПОСЛЕ setup_command_line (страховка)
+          post_spoof = '''
+          /* === POST-SPOOF: patch saved_command_line after copy === */
+          {
+              char *p = strstr(saved_command_line, "androidboot.serialno=");
+              if (p) { p += 21; memcpy(p, "a7c2e91b", 8); }
+          }
+          '''
+
+          t1 = 'setup_arch(&command_line);'
+          t2 = 'setup_command_line(command_line);'
+          ok = False
+          if t1 in content and t2 in content:
+              content = content.replace(t1, pre_spoof + '\n\t' + t1)
+              content = content.replace(t2, t2 + '\n' + post_spoof)
+              ok = True
+          elif t1 in content:
+              content = content.replace(t1, t1 + '\n' + spoof_block)
+              ok = True
+          if ok:
               with open('init/main.c', 'w') as f:
                   f.write(content)
-              print('OK: Serial spoof injected into init/main.c')
+              print('OK: Serial spoof injected (both pre and post)')
           else:
-              alt = 'pr_notice("%s", linux_banner);'
-              if alt in content:
-                  content = content.replace(alt, spoof_block + '\n\t' + alt)
-                  with open('init/main.c', 'w') as f:
-                      f.write(content)
-                  print('OK: Serial spoof injected (alt point)')
-              else:
-                  print('WARN: Could not find injection point')
+              print('WARN: Could not find injection points')
           PYEOF
 
           # 2. Патчим socinfo.c — подмена SoC серийника
@@ -239,9 +257,27 @@ jobs:
           BUILD_CONFIG=${{ env.KERNEL_LOC_DIR }}/${{ env.KERNEL_NAME }}/build.config.gki.aarch64 \
           build/build.sh -j$(nproc --all)
 
-      - name: "📤 Upload kernel artifact"
+      - name: "📁 Copy kernel image"
+        working-directory: ${{ env.WORK_DIR }}/out/dist
+        run: |
+          cp Image "${{ env.OUTPUT_NAME }}"
+
+      - name: "📦 Package into AnyKernel3 ZIP"
+        working-directory: ${{ env.WORK_DIR }}
+        run: |
+          git clone --depth=1 https://github.com/topnotchfreaks/AnyKernel3 -b YASK AnyKernel3
+          cp out/dist/${{ env.OUTPUT_NAME }} AnyKernel3/
+          cd AnyKernel3
+          ZIP_NAME="YASK-GKI-Secret_$(date +'%Y-%m-%d').zip"
+          zip -r9 "../$ZIP_NAME" * -x .git/*
+          cd ..
+          echo "ZIP_NAME=$ZIP_NAME" >> $GITHUB_ENV
+          echo "✅ AnyKernel3 ZIP created: $ZIP_NAME"
+
+      - name: "📤 Upload flashable ZIP"
         uses: actions/upload-artifact@v4
         with:
-          name: GKI-Secret-Kernel
-          path: ${{ env.WORK_DIR }}/out/dist/Image
+          name: YASK-GKI-Secret-AK3
+          path: ${{ env.ZIP_NAME }}
           retention-days: 7
+
