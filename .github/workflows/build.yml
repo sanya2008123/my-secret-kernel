@@ -80,7 +80,7 @@ jobs:
             local url="$1"
             local file=$(basename "$url")
             curl -L -o "$file" "$url"
-            patch -p1 < "$file" || echo "::warning::Hunks failed in $file"
+            patch -p1 < "$file" || true
             rm -f "$file"
           }
 
@@ -92,15 +92,11 @@ jobs:
             apply_patch "$p"
           done
 
-      # ============================================================
-      # ПАТЧ СЕРИЙНИКА (можно править этот блок отдельно)
-      # ============================================================
       - name: "🔧 Serial spoof patch"
         working-directory: ./${{ env.KERNEL_LOC_DIR }}/${{ env.KERNEL_NAME }}
         run: |
           echo "🔧 Applying serial spoof patch"
           
-          # Добавляем код в init/main.c
           cat >> init/main.c << 'EOF'
           
           /* YASK: Serial spoof trigger via /proc */
@@ -139,14 +135,12 @@ jobs:
           late_initcall(init_spoof_trigger);
           EOF
           
-          # Патч для socinfo.c
           if [ -f "drivers/soc/qcom/socinfo.c" ]; then
             sed -i 's/le32_to_cpu(socinfo->serial_num)/0xa7c2e91b/g' drivers/soc/qcom/socinfo.c
             sed -i 's/le32_to_cpu(socinfo->serial_number)/0xa7c2e91b/g' drivers/soc/qcom/socinfo.c
             echo "✓ Patched socinfo.c"
           fi
           
-          # Патч для USB
           if [ -f "drivers/usb/gadget/composite.c" ]; then
             sed -i 's/copy_to_user(un->serial_number, serial, len)/copy_to_user(un->serial_number, "a7c2e91b", 9)/g' drivers/usb/gadget/composite.c
             echo "✓ Patched composite.c"
