@@ -29,7 +29,7 @@ jobs:
           mkdir -p ${{ env.KERNEL_LOC_DIR }}
           echo "BUILD_TIME=$(date +'%Y-%m-%d')" >> $GITHUB_ENV
           sudo apt-get update -qq
-          sudo apt-get install -y repo rsync aria2 git zip dwarfs libelf-dev gcc-aarch64-linux-gnu libssl-dev python3
+          sudo apt-get install -y repo rsync aria2 git zip dwarves libelf-dev gcc-aarch64-linux-gnu libssl-dev python3
 
       - name: "📐 Setup SWAP 10GB"
         uses: pierotofy/set-swap-space@master
@@ -45,26 +45,17 @@ jobs:
       - name: "📥 Initialize AOSP repo and toolchains"
         working-directory: ${{ env.WORK_DIR }}
         run: |
-          # Initialize AOSP repo
           repo init -u https://android.googlesource.com/kernel/manifest -b common-android13-5.15-lts --depth=1
           repo sync --optimized-fetch --prune -j8
-          
-          # Clean up
           rm -rf .repo
           rm -rf common
-
-          # Download custom clang
           aria2c -x 16 -s 16 -o prebuilts/clang/host/linux-x86/clang-r547379.tar.gz "https://github.com/topnotchfreaks/clang/releases/download/v1.0.0/clang-r547379.tar.gz"
           mkdir -p prebuilts/clang/host/linux-x86/clang-r547379
           tar -xzf prebuilts/clang/host/linux-x86/clang-r547379.tar.gz -C prebuilts/clang/host/linux-x86/clang-r547379
           rm -rf prebuilts/clang/host/linux-x86/clang-r547379.tar.gz
-
-          # Clean unused clang
           rm -rf prebuilts/clang/host/linux-x86/clang-3289846
           rm -rf prebuilts/clang/host/linux-x86/clang-r450784e
           rm -rf prebuilts/clang/host/linux-x86/clang-stable
-          
-          # Update build config
           sed -i \
             -e 's/^BRANCH=.*/BRANCH=android13-5.15/' \
             -e 's/^CLANG_VERSION=.*/CLANG_VERSION=r547379/' \
@@ -73,42 +64,27 @@ jobs:
       - name: "🧬 ХИРУРГИЯ (ПАМЯТЬ + СЕРИЙНИК)"
         working-directory: ./${{ env.KERNEL_LOC_DIR }}/${{ env.KERNEL_NAME }}
         run: |
-          # ========== 1. ПОДМЕНА ПАМЯТИ ==========
-          echo "🔧 Faking MemTotal..."
+          # Подмена памяти
           sed -i 's/show_val_kb(m, "MemTotal:       ", i.totalram);/seq_printf(m, "MemTotal:       7783999 kB\\n");/g' fs/proc/meminfo.c
           
-          # ========== 2. ПОДМЕНА СЕРИЙНИКА (SOC) ==========
-          echo "🔧 Faking Serial Number..."
-          cat > /tmp/fake_serial.patch << 'EOF'
---- a/drivers/soc/qcom/socinfo.c
-+++ b/drivers/soc/qcom/socinfo.c
-@@ -XXX,XX +XXX,XX @@ uint32_t socinfo_get_serial_number(void)
- {
--	return socinfo ? le32_to_cpu(socinfo->serial_num) : 0;
-+	return 0x5A3B8C2D;  /* FAKE SERIAL */
- }
-EOF
-          patch -p1 < /tmp/fake_serial.patch || {
-            echo "⚠ Patch failed, trying alternative method..."
-            python3 << 'PYTHON_SCRIPT'
+          # Подмена серийника через Python (однострочник)
+          python3 -c "
 import re
 path = 'drivers/soc/qcom/socinfo.c'
 with open(path, 'r') as f:
     content = f.read()
 content = re.sub(
     r'return\s+socinfo\s*\?\s*le32_to_cpu\(socinfo->serial_num\)\s*:\s*0;',
-    'return 0x5A3B8C2D;  /* FAKE */',
+    'return 0x5A3B8C2D;',
     content
 )
 with open(path, 'w') as f:
     f.write(content)
-print("✓ Serial number patched via Python")
-PYTHON_SCRIPT
-          }
+print('Serial patched')
+"
           
-          # ========== 3. ПОДМЕНА USB СЕРИЙНИКА ==========
-          echo "🔧 Faking USB Serial..."
-          sed -i 's/copy_to_user(un->serial_number, serial, len)/copy_to_user(un->serial_number, "5A3B8C2D", 9)/g' drivers/usb/gadget/composite.c || echo "⚠ USB serial patch skipped"
+          # Подмена USB серийника
+          sed -i 's/copy_to_user(un->serial_number, serial, len)/copy_to_user(un->serial_number, "5A3B8C2D", 9)/g' drivers/usb/gadget/composite.c || true
           
           echo "✅ ХИРУРГИЯ ЗАВЕРШЕНА"
 
@@ -116,38 +92,30 @@ PYTHON_SCRIPT
         working-directory: ./${{ env.KERNEL_LOC_DIR }}/${{ env.KERNEL_NAME }}
         run: |
           set -e
-          
-          # Clean old
           rm -rf ./KernelSU ./drivers/kernelsu ./Wild_KSU
           
-          # Install Wild-KSU
-          echo "📦 Installing Wild-KSU..."
+          echo "Installing Wild-KSU..."
           curl -LSs "https://raw.githubusercontent.com/WildKernels/Wild_KSU/wild/kernel/setup.sh" | bash -s canary
           
           if [ ! -d "Wild_KSU" ]; then
-            echo "❌ ERROR: Wild_KSU not found!"
+            echo "ERROR: Wild_KSU not found!"
             exit 1
           fi
           
-          # Clone SUSFS
-          echo "📦 Cloning SUSFS..."
+          echo "Cloning SUSFS..."
           git clone --depth=1 https://gitlab.com/simonpunk/susfs4ksu.git -b gki-android13-5.15
           
-          # Apply SUSFS patch
           if [ -f "susfs4ksu/kernel_patches/50_add_susfs_in_gki-android13-5.15.patch" ]; then
             patch -p1 --forward < "susfs4ksu/kernel_patches/50_add_susfs_in_gki-android13-5.15.patch" || true
           fi
           
-          # Copy SUSFS files
           mkdir -p fs include/linux
           cp -f susfs4ksu/kernel_patches/fs/susfs.c fs/ 2>/dev/null || true
           cp -f susfs4ksu/kernel_patches/include/linux/susfs.h include/linux/ 2>/dev/null || true
           cp -f susfs4ksu/kernel_patches/include/linux/susfs_def.h include/linux/ 2>/dev/null || true
           
-          # Create symlink
           ln -sf ../Wild_KSU drivers/kernelsu
           
-          # Add configs to defconfig
           cat >> arch/arm64/configs/${{ env.DEFCONFIG_NAME }} << 'EOF'
 CONFIG_KSU=y
 CONFIG_KPROBES=y
@@ -171,18 +139,16 @@ CONFIG_KSU_SUSFS_OPEN_REDIRECT=y
 CONFIG_KSU_SUSFS_SUS_SU=y
 EOF
           
-          # Add localversion
           echo "CONFIG_LOCALVERSION=\"${{ env.LOCAL_VERSION }}-${{ env.BUILD_TIME }}\"" >> arch/arm64/configs/${{ env.DEFCONFIG_NAME }}
           echo "CONFIG_LOCALVERSION_AUTO=n" >> arch/arm64/configs/${{ env.DEFCONFIG_NAME }}
           
-          # КЛЮЧЕВОЙ МОМЕНТ: Отключаем проверку defconfig
-          sed -i '/check_defconfig/d' build.config.gki.aarch64
-          sed -i '/POST_DEFCONFIG_CMDS.*check_defconfig/d' build.config.gki
+          # Отключаем проверку defconfig
+          sed -i '/check_defconfig/d' build.config.gki.aarch64 || true
+          sed -i '/POST_DEFCONFIG_CMDS.*check_defconfig/d' build.config.gki || true
           
-          # Cleanup
           rm -rf susfs4ksu
           
-          echo "✅ Wild-KSU + SUSFS ready, defconfig check disabled"
+          echo "✅ Wild-KSU + SUSFS ready"
 
       - name: "🔨 Build kernel"
         working-directory: ${{ env.WORK_DIR }}
