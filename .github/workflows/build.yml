@@ -60,27 +60,14 @@ jobs:
             -e 's/^BRANCH=.*/BRANCH=android13-5.15/' \
             -e 's/^CLANG_VERSION=.*/CLANG_VERSION=r547379/' \
             ${{ env.KERNEL_LOC_DIR }}/${{ env.KERNEL_NAME }}/build.config.constants
+          sed -i '/check_defconfig/d' ${{ env.KERNEL_LOC_DIR }}/${{ env.KERNEL_NAME }}/build.config.gki || true
 
-      - name: "🧬 ХИРУРГИЯ (ПАМЯТЬ + СЕРИЙНИК)"
+      - name: "🔧 Fake serial number"
         working-directory: ./${{ env.KERNEL_LOC_DIR }}/${{ env.KERNEL_NAME }}
         run: |
-          sed -i 's/show_val_kb(m, "MemTotal:       ", i.totalram);/seq_printf(m, "MemTotal:       7783999 kB\\n");/g' fs/proc/meminfo.c
-          python3 -c "
-import re
-path = 'drivers/soc/qcom/socinfo.c'
-with open(path, 'r') as f:
-    content = f.read()
-content = re.sub(
-    r'return\s+socinfo\s*\?\s*le32_to_cpu\(socinfo->serial_num\)\s*:\s*0;',
-    'return 0x5A3B8C2D;',
-    content
-)
-with open(path, 'w') as f:
-    f.write(content)
-print('Serial patched')
-"
-          sed -i 's/copy_to_user(un->serial_number, serial, len)/copy_to_user(un->serial_number, "5A3B8C2D", 9)/g' drivers/usb/gadget/composite.c || true
-          echo "✅ ХИРУРГИЯ ЗАВЕРШЕНА"
+          echo "🔧 Faking serial number to 5A3B8C2D..."
+          sed -i 's/return socinfo ? le32_to_cpu(socinfo->serial_num) : 0;/return 0x5A3B8C2D;/g' drivers/soc/qcom/socinfo.c
+          echo "✅ Serial number patched"
 
       - name: "🔧 Setup Wild-KSU with SUSFS"
         working-directory: ./${{ env.KERNEL_LOC_DIR }}/${{ env.KERNEL_NAME }}
@@ -125,8 +112,6 @@ CONFIG_KSU_SUSFS_SUS_SU=y
 EOF
           echo "CONFIG_LOCALVERSION=\"${{ env.LOCAL_VERSION }}-${{ env.BUILD_TIME }}\"" >> arch/arm64/configs/${{ env.DEFCONFIG_NAME }}
           echo "CONFIG_LOCALVERSION_AUTO=n" >> arch/arm64/configs/${{ env.DEFCONFIG_NAME }}
-          sed -i '/check_defconfig/d' build.config.gki.aarch64 || true
-          sed -i '/POST_DEFCONFIG_CMDS.*check_defconfig/d' build.config.gki || true
           rm -rf susfs4ksu
           echo "✅ Wild-KSU + SUSFS ready"
 
@@ -141,7 +126,6 @@ EOF
         working-directory: ${{ env.WORK_DIR }}/out/dist
         run: |
           cp Image "${{ env.OUTPUT_NAME }}"
-          ls -la
 
       - name: "📤 Upload kernel artifact"
         uses: actions/upload-artifact@v4
