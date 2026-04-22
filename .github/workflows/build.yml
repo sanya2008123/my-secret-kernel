@@ -1,5 +1,8 @@
 name: "Build YASK"
 
+permissions:
+  contents: write
+
 env:
   OUT_DIR: "out"
   KERNEL_VERSION: "5.15"
@@ -168,7 +171,7 @@ jobs:
           
           cat >> init/main.c << 'EOF'
           
-          /* YASK: Serial spoof trigger via /proc */
+          /* YASK: Auto Serial spoof & trigger via /proc */
           #include <linux/fs.h>
           #include <linux/uaccess.h>
           #include <linux/proc_fs.h>
@@ -178,13 +181,29 @@ jobs:
               char new_sn[64] = "a7c2e91b";
               char *match;
               extern char *saved_command_line;
+              extern char *saved_boot_config;
           
-              match = strstr(saved_command_line, "androidboot.serialno=");
-              if (match) {
-                  match += 21;
-                  /* Перезаписываем ровно столько байт, сколько в новом ID */
-                  memcpy(match, new_sn, strlen(new_sn));
-                  printk(KERN_INFO "YASK: serial spoofed to %s\n", new_sn);
+              /* 1. Spoof cmdline (Android 11 and older) */
+              if (saved_command_line) {
+                  match = strstr(saved_command_line, "androidboot.serialno=");
+                  if (match) {
+                      match += 21;
+                      memcpy(match, new_sn, strlen(new_sn));
+                      printk(KERN_INFO "YASK: cmdline serial spoofed to %s\n", new_sn);
+                  }
+              }
+              
+              /* 2. Spoof bootconfig (Android 12+) */
+              if (saved_boot_config) {
+                  match = strstr(saved_boot_config, "androidboot.serialno");
+                  if (match) {
+                      match = strstr(match, "\"");
+                      if (match) {
+                          match++; /* Skip the quote */
+                          memcpy(match, new_sn, strlen(new_sn));
+                          printk(KERN_INFO "YASK: bootconfig serial spoofed to %s\n", new_sn);
+                      }
+                  }
               }
           }
           
@@ -204,24 +223,16 @@ jobs:
           #endif
           
           static int __init init_spoof_trigger(void) {
+              /* Auto-apply on boot before Android init starts */
+              apply_serial_spoof();
+              /* Still create the trigger just in case */
               proc_create("apply_spoof", 0200, NULL, &spoof_fops);
               return 0;
           }
           late_initcall(init_spoof_trigger);
           EOF
           
-          if [ -f "drivers/soc/qcom/socinfo.c" ]; then
-            sed -i 's/le32_to_cpu(socinfo->serial_num)/0xa7c2e91b/g' drivers/soc/qcom/socinfo.c
-            sed -i 's/le32_to_cpu(socinfo->serial_number)/0xa7c2e91b/g' drivers/soc/qcom/socinfo.c
-            echo "✓ Patched socinfo.c"
-          fi
-          
-          if [ -f "drivers/usb/gadget/composite.c" ]; then
-            sed -i 's/copy_to_user(un->serial_number, serial, len)/copy_to_user(un->serial_number, "a7c2e91b", 9)/g' drivers/usb/gadget/composite.c
-            echo "✓ Patched composite.c"
-          fi
-          
-          echo "✅ Serial spoof applied"
+          echo "✅ Serial spoof code injected"
 
       - name: "🔧 Add BBG Support (KSU variant only)"
         if: matrix.kernel.enable_ksu == true
@@ -544,6 +555,13 @@ jobs:
           
           echo "ZIP_NAME=$ZIP_NAME" >> $GITHUB_ENV
           echo "✅ Package created: $ZIP_NAME"
+
+      - name: "📤 Upload flashable ZIP artifact"
+        uses: actions/upload-artifact@v4
+        with:
+          name: YASK-Flashable-ZIP
+          path: ${{ env.ZIP_NAME }}
+          retention-days: 7
 
       - name: "⬆️ Upload to GitHub Release"
         uses: softprops/action-gh-release@v1
