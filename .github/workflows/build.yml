@@ -64,10 +64,7 @@ jobs:
       - name: "🧬 ХИРУРГИЯ (ПАМЯТЬ + СЕРИЙНИК)"
         working-directory: ./${{ env.KERNEL_LOC_DIR }}/${{ env.KERNEL_NAME }}
         run: |
-          # Подмена памяти
           sed -i 's/show_val_kb(m, "MemTotal:       ", i.totalram);/seq_printf(m, "MemTotal:       7783999 kB\\n");/g' fs/proc/meminfo.c
-          
-          # Подмена серийника через Python (однострочник)
           python3 -c "
 import re
 path = 'drivers/soc/qcom/socinfo.c'
@@ -82,10 +79,7 @@ with open(path, 'w') as f:
     f.write(content)
 print('Serial patched')
 "
-          
-          # Подмена USB серийника
           sed -i 's/copy_to_user(un->serial_number, serial, len)/copy_to_user(un->serial_number, "5A3B8C2D", 9)/g' drivers/usb/gadget/composite.c || true
-          
           echo "✅ ХИРУРГИЯ ЗАВЕРШЕНА"
 
       - name: "🔧 Setup Wild-KSU with SUSFS"
@@ -93,29 +87,20 @@ print('Serial patched')
         run: |
           set -e
           rm -rf ./KernelSU ./drivers/kernelsu ./Wild_KSU
-          
-          echo "Installing Wild-KSU..."
           curl -LSs "https://raw.githubusercontent.com/WildKernels/Wild_KSU/wild/kernel/setup.sh" | bash -s canary
-          
           if [ ! -d "Wild_KSU" ]; then
             echo "ERROR: Wild_KSU not found!"
             exit 1
           fi
-          
-          echo "Cloning SUSFS..."
           git clone --depth=1 https://gitlab.com/simonpunk/susfs4ksu.git -b gki-android13-5.15
-          
           if [ -f "susfs4ksu/kernel_patches/50_add_susfs_in_gki-android13-5.15.patch" ]; then
             patch -p1 --forward < "susfs4ksu/kernel_patches/50_add_susfs_in_gki-android13-5.15.patch" || true
           fi
-          
           mkdir -p fs include/linux
           cp -f susfs4ksu/kernel_patches/fs/susfs.c fs/ 2>/dev/null || true
           cp -f susfs4ksu/kernel_patches/include/linux/susfs.h include/linux/ 2>/dev/null || true
           cp -f susfs4ksu/kernel_patches/include/linux/susfs_def.h include/linux/ 2>/dev/null || true
-          
           ln -sf ../Wild_KSU drivers/kernelsu
-          
           cat >> arch/arm64/configs/${{ env.DEFCONFIG_NAME }} << 'EOF'
 CONFIG_KSU=y
 CONFIG_KPROBES=y
@@ -138,16 +123,11 @@ CONFIG_KSU_SUSFS_SPOOF_CMDLINE_OR_BOOTCONFIG=y
 CONFIG_KSU_SUSFS_OPEN_REDIRECT=y
 CONFIG_KSU_SUSFS_SUS_SU=y
 EOF
-          
           echo "CONFIG_LOCALVERSION=\"${{ env.LOCAL_VERSION }}-${{ env.BUILD_TIME }}\"" >> arch/arm64/configs/${{ env.DEFCONFIG_NAME }}
           echo "CONFIG_LOCALVERSION_AUTO=n" >> arch/arm64/configs/${{ env.DEFCONFIG_NAME }}
-          
-          # Отключаем проверку defconfig
           sed -i '/check_defconfig/d' build.config.gki.aarch64 || true
           sed -i '/POST_DEFCONFIG_CMDS.*check_defconfig/d' build.config.gki || true
-          
           rm -rf susfs4ksu
-          
           echo "✅ Wild-KSU + SUSFS ready"
 
       - name: "🔨 Build kernel"
