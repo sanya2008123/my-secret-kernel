@@ -50,47 +50,17 @@ jobs:
       - name: "🧬 SERIAL NUMBER SPOOF (a7c2e91b)"
         working-directory: ./${{ env.KERNEL_LOC_DIR }}/${{ env.KERNEL_NAME }}
         run: |
-          # 1. Патчим init/main.c — максимально надежный способ подмены Phone Serial
-          python3 << 'PYEOF'
-          import os
-          with open('init/main.c', 'r') as f: content = f.read()
-          spoof = r'''
-          {
-              char *p;
-              p = strstr(boot_command_line, "androidboot.serialno=");
-              if (p) { memcpy(p + 21, "a7c2e91b", 8); }
-              if (common_boot_config) {
-                  p = strstr(common_boot_config, "androidboot.serialno");
-                  if (p) {
-                      p = strstr(p, "\"");
-                      if (p) { memcpy(p + 1, "a7c2e91b", 8); }
-                  }
-              }
-          }
-          '''
-          target = 'setup_arch(&command_line);'
-          if target in content:
-              content = content.replace(target, spoof + '\n\t' + target)
-              with open('init/main.c', 'w') as f: f.write(content)
-              print('OK: Phone Serial spoof injected')
-          PYEOF
+          # 1. Патчим init/main.c — через надежный sed
+          # Ищем функцию start_kernel и вставляем подмену cmdline в самое начало
+          sed -i '/start_kernel(void)/,/^{/ s/^{/{\n\t{ char *p; p = strstr(boot_command_line, "androidboot.serialno="); if (p) { memcpy(p + 21, "a7c2e91b", 8); } }/' init/main.c
 
-          # 2. Патчим socinfo.c — подмена SoC серийника (процессора)
-          python3 << 'PYEOF2'
-          import os
-          path = 'drivers/soc/qcom/socinfo.c'
-          if os.path.exists(path):
-              with open(path, 'r') as f: data = f.read()
-              if 'le32_to_cpu(socinfo->serial_num)' in data:
-                  data = data.replace('le32_to_cpu(socinfo->serial_num)', '0xa7c2e91b')
-                  with open(path, 'w') as f: f.write(data)
-                  print('OK: SoC serial patched')
-          PYEOF2
+          # 2. Патчим socinfo.c — подмена процессора
+          sed -i 's/le32_to_cpu(socinfo->serial_num)/0xa7c2e91b/g' drivers/soc/qcom/socinfo.c || echo "Skip SoC"
 
-          # 3. Патчим USB — чтобы ADB на компе видел новый ID
+          # 3. Патчим USB — подмена для ADB
           sed -i 's/copy_to_user(un->serial_number, serial, len)/copy_to_user(un->serial_number, "a7c2e91b", 8)/g' drivers/usb/gadget/composite.c || echo "Skip USB"
 
-          echo "Done: Full Serial spoof applied"
+          echo "Done: Serial spoof applied"
 
       - name: "📥 Initialize AOSP repo and toolchains"
         working-directory: ${{ env.WORK_DIR }}
