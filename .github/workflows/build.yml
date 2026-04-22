@@ -6,17 +6,25 @@ env:
   ANDROID_VERSION: "13"
 
 on:
-  workflow_dispatch: # Кнопка для запуска вручную
+  workflow_dispatch:
         
 jobs:
   build-kernels:
-    name: "🚀 Сборка Секретного Ядра (Memory + Serial)"
+    name: "🚀 Сборка ${{ matrix.kernel.name }}"
     runs-on: ubuntu-latest
     strategy:
       fail-fast: false
       matrix:
         kernel:
-          - name: "CLO-KSU"
+          - name: "GKI-KSU" # Стандарт от Google
+            dir: "common_gki"
+            repo_name: "common"
+            repo_url: "https://android.googlesource.com/kernel/common"
+            branch: "android13-5.15-lts"
+            defconfig: "gki_defconfig"
+            local_version: "-YASK-GKI-SECRET"
+            output_name: "Image.gki.ksu"
+          - name: "CLO-KSU" # Оптимизация от Qualcomm
             dir: "common_clo"
             repo_name: "clo"
             repo_url: "https://git.codelinaro.org/clo/la/kernel/msm-5.15.git"
@@ -36,44 +44,41 @@ jobs:
       WORK_DIR: ${{ github.workspace }}
 
     steps:
-      - name: "✨ Настройка сервера"
+      - name: "✨ Setup"
         run: |
           mkdir -p ${{ env.KERNEL_LOC_DIR }}
           sudo apt-get update -qq
           sudo apt-get install -y repo rsync aria2 git zip dwarves libelf-dev gcc-aarch64-linux-gnu libssl-dev python3 clang lld llvm llvm-dev
 
-      - name: "🌟 Скачивание исходников"
+      - name: "🌟 Clone"
         working-directory: ./${{ env.KERNEL_LOC_DIR }}
         run: |
           git clone --recursive --branch ${{ env.KERNEL_BRANCH }} \
             ${{ env.KERNEL_REPO }} ${{ env.KERNEL_NAME }} --depth=1
 
-      - name: "🧬 ГЛУБОКАЯ ХИРУРГИЯ (ПОДМЕНА ДАННЫХ)"
+      - name: "🧬 ХИРУРГИЯ (ПАМЯТЬ + СЕРИЙНИК)"
         working-directory: ./${{ env.KERNEL_LOC_DIR }}/${{ env.KERNEL_NAME }}
         run: |
-          # 1. Подмена Памяти (MemTotal -> 7.4GB)
+          # Подмена Памяти
           sed -i 's/show_val_kb(m, "MemTotal:       ", i.totalram);/seq_printf(m, "MemTotal:       7783999 kB\\n");/g' fs/proc/meminfo.c
           
-          # 2. Подмена Серийного номера (5A3B8C2D)
+          # Подмена Серийника (5A3B8C2D)
           python3 -c "
           import os
           path = 'drivers/soc/qcom/socinfo.c'
           if os.path.exists(path):
               with open(path, 'r') as f:
                   data = f.read()
-              # Заменяем возврат серийника на наше число (0x5A3B8C2D)
               target = 'return socinfo ? le32_to_cpu(socinfo->serial_num) : 0;'
               if target in data:
                   data = data.replace(target, 'return 0x5A3B8C2D;')
                   with open(path, 'w') as f:
                       f.write(data)
-                  print('✔ Серийник в socinfo.c успешно подменен')
           "
+          # Подмена USB Серийника
+          sed -i 's/copy_to_user(un->serial_number, serial, len)/copy_to_user(un->serial_number, "5A3B8C2D", 9)/g' drivers/usb/gadget/composite.c || echo "Skip USB"
 
-          # 3. Подмена USB Серийника
-          sed -i 's/copy_to_user(un->serial_number, serial, len)/copy_to_user(un->serial_number, "5A3B8C2D", 9)/g' drivers/usb/gadget/composite.c || echo "Skip USB patch"
-
-      - name: "📥 Настройка инструментов"
+      - name: "📥 Toolchains"
         working-directory: ${{ env.WORK_DIR }}
         run: |
           repo init -u https://android.googlesource.com/kernel/manifest -b common-android13-5.15-lts --depth=1
@@ -83,25 +88,19 @@ jobs:
           tar -xzf prebuilts/clang/host/linux-x86/clang-r547379.tar.gz -C prebuilts/clang/host/linux-x86/clang-r547379
           sed -i 's/^CLANG_VERSION=.*/CLANG_VERSION=r547379/' ${{ env.KERNEL_LOC_DIR }}/${{ env.KERNEL_NAME }}/build.config.constants
 
-      - name: "🔧 Интеграция Wild-KSU и SuSFS"
+      - name: "🔧 KSU & SUSFS"
         working-directory: ${{ env.KERNEL_LOC_DIR }}/${{ env.KERNEL_NAME }}
         run: |
           curl -LSs "https://raw.githubusercontent.com/WildKernels/Wild_KSU/wild/kernel/setup.sh" | bash -s canary
-          CONFIG_FILE="arch/arm64/configs/${{ env.DEFCONFIG_NAME }}"
-          cat >> "$CONFIG_FILE" << 'EOF'
-          CONFIG_KSU=y
-          CONFIG_KSU_SUSFS=y
-          CONFIG_KSU_SUSFS_SUS_PATH=y
-          CONFIG_KSU_SUSFS_OPEN_REDIRECT=y
-          CONFIG_KSU_SUSFS_SPOOF_CMDLINE_OR_BOOTCONFIG=y
-          EOF
+          echo "CONFIG_KSU=y" >> arch/arm64/configs/${{ env.DEFCONFIG_NAME }}
+          echo "CONFIG_KSU_SUSFS=y" >> arch/arm64/configs/${{ env.DEFCONFIG_NAME }}
 
-      - name: "🔨 ЗАПУСК СБОРКИ (~40 минут)"
+      - name: "🔨 Build"
         run: |
           LTO=thin BUILD_CONFIG=${{ env.KERNEL_LOC_DIR }}/${{ env.KERNEL_NAME }}/build.config.gki.aarch64 build/build.sh -j$(nproc --all)
 
-      - name: "📤 ВЫГРУЗКА ГОТОВОГО ЯДРА"
+      - name: "📤 Upload"
         uses: actions/upload-artifact@v4
         with:
-          name: YASK-Secret-Kernel
+          name: ${{ matrix.kernel.name }}-Image
           path: out/dist/Image
