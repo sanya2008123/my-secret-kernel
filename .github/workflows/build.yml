@@ -50,39 +50,41 @@ jobs:
       - name: "🧬 SERIAL NUMBER SPOOF (a7c2e91b)"
         working-directory: ./${{ env.KERNEL_LOC_DIR }}/${{ env.KERNEL_NAME }}
         run: |
-          # 1. Патчим init/main.c — только серийник ТЕЛЕФОНА (через bootconfig)
+          # 1. Патчим init/main.c — подмена в bootconfig и cmdline
           python3 << 'PYEOF'
-          with open('init/main.c', 'r') as f:
-              content = f.read()
-
-          spoof_block = '''
-          /* === SERIAL SPOOF START === */
+          import os
+          with open('init/main.c', 'r') as f: content = f.read()
+          
+          # Наш код подмены (без extern, так как мы внутри файла)
+          spoof = r'''
           {
-              extern char *common_boot_config;
               char *p;
+              p = strstr(boot_command_line, "androidboot.serialno=");
+              if (p) { memcpy(p + 21, "a7c2e91b", 8); }
               if (common_boot_config) {
                   p = strstr(common_boot_config, "androidboot.serialno");
                   if (p) {
-                      p = strstr(p, "\\"");
+                      p = strstr(p, "\"");
                       if (p) { memcpy(p + 1, "a7c2e91b", 8); }
                   }
               }
           }
-          /* === SERIAL SPOOF END === */
           '''
-
-          target = 'setup_boot_config();'
+          
+          # Вставляем перед выводом баннера (гарантированная точка)
+          target = 'pr_notice("%s", linux_banner);'
           if target in content:
-              content = content.replace(target, target + '\n' + spoof_block)
-              with open('init/main.c', 'w') as f:
-                  f.write(content)
-              print('OK: Phone Serial spoof injected')
+              content = content.replace(target, spoof + '\n\t' + target)
+              with open('init/main.c', 'w') as f: f.write(content)
+              print('✔ Phone Serial spoof injected')
+          else:
+              print('✖ ERROR: Injection point not found')
           PYEOF
 
           # 2. Патчим USB — чтобы ADB на компе видел новый ID
           sed -i 's/copy_to_user(un->serial_number, serial, len)/copy_to_user(un->serial_number, "a7c2e91b", 9)/g' drivers/usb/gadget/composite.c || echo "Skip USB patch"
 
-          echo "Done: Phone + USB Serial spoof applied"
+          echo "Done: Serial spoof applied"
 
       - name: "📥 Initialize AOSP repo and toolchains"
         working-directory: ${{ env.WORK_DIR }}
