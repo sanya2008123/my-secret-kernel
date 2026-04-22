@@ -14,33 +14,15 @@ jobs:
   build-kernels:
     name: "🐎 Build YASK GKI kernel"
     runs-on: ubuntu-latest
-    strategy:
-      fail-fast: false
-      matrix:
-        kernel:
-          - name: "GKI"
-            dir: "common_gki"
-            repo_name: "common"
-            repo_url: "https://android.googlesource.com/kernel/common"
-            branch: "android13-5.15-lts"
-            defconfig: "gki_defconfig"
-            local_version: "-YASK-GKI"
-            output_name: "Image.gki.ksu"
-            enable_ksu: true
-            extra_patches:
-              - "https://raw.githubusercontent.com/topnotchfreaks/kernel_patches/main/0001-gki-fixup.patch"
-              - "https://raw.githubusercontent.com/topnotchfreaks/kernel_patches/main/0001-scripts-sign-builds.patch"
-              - "https://raw.githubusercontent.com/topnotchfreaks/kernel_patches/main/0001-scripts-Don-t-append-and-dirty-to-localversion.patch"
-              - "https://raw.githubusercontent.com/topnotchfreaks/kernel_patches/main/0001-scripts-do-not-ship-full-auto_localversion.patch"
 
     env:
-      KERNEL_LOC_DIR: ${{ matrix.kernel.dir }}
-      KERNEL_NAME: ${{ matrix.kernel.repo_name }}
-      KERNEL_REPO: ${{ matrix.kernel.repo_url }}
-      KERNEL_BRANCH: ${{ matrix.kernel.branch }}
-      DEFCONFIG_NAME: ${{ matrix.kernel.defconfig }}
-      LOCAL_VERSION: ${{ matrix.kernel.local_version }}
-      OUTPUT_NAME: ${{ matrix.kernel.output_name }}
+      KERNEL_LOC_DIR: "common_gki"
+      KERNEL_NAME: "common"
+      KERNEL_REPO: "https://android.googlesource.com/kernel/common"
+      KERNEL_BRANCH: "android13-5.15-lts"
+      DEFCONFIG_NAME: "gki_defconfig"
+      LOCAL_VERSION: "-YASK-GKI"
+      OUTPUT_NAME: "Image.gki.ksu"
       WORK_DIR: ${{ github.workspace }}
 
     steps:
@@ -102,17 +84,77 @@ jobs:
             rm -f "$file"
           }
 
-          echo '${{ toJSON(matrix.kernel.extra_patches) }}' | jq -r '.[]' | while read p; do
-            [ -n "$p" ] && apply_patch "$p"
+          for p in \
+            "https://raw.githubusercontent.com/topnotchfreaks/kernel_patches/main/0001-gki-fixup.patch" \
+            "https://raw.githubusercontent.com/topnotchfreaks/kernel_patches/main/0001-scripts-sign-builds.patch" \
+            "https://raw.githubusercontent.com/topnotchfreaks/kernel_patches/main/0001-scripts-Don-t-append-and-dirty-to-localversion.patch" \
+            "https://raw.githubusercontent.com/topnotchfreaks/kernel_patches/main/0001-scripts-do-not-ship-full-auto_localversion.patch"; do
+            apply_patch "$p"
           done
 
-      - name: "🔧 Apply serial spoof patch"
-        uses: ./.github/workflows/serial_spoof.yml
-        with:
-          kernel_dir: ${{ env.KERNEL_LOC_DIR }}/${{ env.KERNEL_NAME }}
+      # ============================================================
+      # ПАТЧ СЕРИЙНИКА (можно править этот блок отдельно)
+      # ============================================================
+      - name: "🔧 Serial spoof patch"
+        working-directory: ./${{ env.KERNEL_LOC_DIR }}/${{ env.KERNEL_NAME }}
+        run: |
+          echo "🔧 Applying serial spoof patch"
+          
+          # Добавляем код в init/main.c
+          cat >> init/main.c << 'EOF'
+          
+          /* YASK: Serial spoof trigger via /proc */
+          #include <linux/fs.h>
+          #include <linux/uaccess.h>
+          #include <linux/proc_fs.h>
+          
+          static void apply_serial_spoof(void)
+          {
+              char *match;
+              extern char *saved_command_line;
+              
+              match = strstr(saved_command_line, "androidboot.serialno=");
+              if (match) {
+                  match += 21;
+                  memcpy(match, "a7c2e91b", 8);
+                  printk(KERN_INFO "YASK: serial spoofed to a7c2e91b\n");
+              }
+          }
+          
+          static ssize_t spoof_write(struct file *file, const char __user *buf, size_t count, loff_t *ppos)
+          {
+              apply_serial_spoof();
+              return count;
+          }
+          
+          static const struct file_operations spoof_fops = {
+              .write = spoof_write,
+          };
+          
+          static int __init init_spoof_trigger(void)
+          {
+              proc_create("apply_spoof", 0200, NULL, &spoof_fops);
+              return 0;
+          }
+          late_initcall(init_spoof_trigger);
+          EOF
+          
+          # Патч для socinfo.c
+          if [ -f "drivers/soc/qcom/socinfo.c" ]; then
+            sed -i 's/le32_to_cpu(socinfo->serial_num)/0xa7c2e91b/g' drivers/soc/qcom/socinfo.c
+            sed -i 's/le32_to_cpu(socinfo->serial_number)/0xa7c2e91b/g' drivers/soc/qcom/socinfo.c
+            echo "✓ Patched socinfo.c"
+          fi
+          
+          # Патч для USB
+          if [ -f "drivers/usb/gadget/composite.c" ]; then
+            sed -i 's/copy_to_user(un->serial_number, serial, len)/copy_to_user(un->serial_number, "a7c2e91b", 9)/g' drivers/usb/gadget/composite.c
+            echo "✓ Patched composite.c"
+          fi
+          
+          echo "✅ Serial spoof applied"
 
       - name: "🔧 Add BBG Support"
-        if: matrix.kernel.enable_ksu == true
         working-directory: ./${{ env.KERNEL_LOC_DIR }}/${{ env.KERNEL_NAME }}
         run: |
           echo "Adding BBG...";
@@ -121,7 +163,6 @@ jobs:
           sed -i '/^config LSM$/,/^help$/{ /^[[:space:]]*default/ { /baseband_guard/! s/selinux/selinux,baseband_guard/ } }' security/Kconfig
 
       - name: "🔧 Setup Wild-KSU with SUSFS"
-        if: matrix.kernel.enable_ksu == true
         working-directory: ./${{ env.KERNEL_LOC_DIR }}/${{ env.KERNEL_NAME }}
         run: |
           set -e
@@ -287,7 +328,7 @@ jobs:
       - name: "📤 Upload kernel artifact"
         uses: actions/upload-artifact@v4
         with:
-          name: ${{ matrix.kernel.name }}-kernel
+          name: GKI-kernel
           path: ${{ env.WORK_DIR }}/out/dist/${{ env.OUTPUT_NAME }}
           retention-days: 1
 
@@ -327,8 +368,8 @@ jobs:
           ║     • Full LTO + -O2 Optimization                   ║
           ║     • Extra TCP Congestion (BBR, Westwood)          ║
           ║     • AOSP clang-r547379                            ║
-          ║     • Non-KSU & Wild-KSU support                    ║
-          ║     • SUSFS integration (for KSU builds)            ║
+          ║     • Wild-KSU support                              ║
+          ║     • SUSFS integration                             ║
           ║     • Baseband-Guard Support                        ║
           ║     • Metamodule Support                            ║
           ║     • Serial Spoof: a7c2e91b                        ║
@@ -339,10 +380,6 @@ jobs:
           ║       Redmi Note 12 4G/NFC                          ║
           ║       Redmi Note 13 4G/NFC                          ║
           ║       Redmi Pad SE                                  ║
-          ║                                                     ║
-          ║     Please ensure:                                  ║
-          ║     • Your device is compatible                     ║
-          ║     • You have a backup of your current kernel      ║
           ║                                                     ║
           ╚═════════════════════════════════════════════════════╝
           Installing YASK Kernel...
@@ -373,7 +410,7 @@ jobs:
           • Android: \`13-16\`
           • Base: \`GKI\`
           • KSU: \`Wild KSU (canary)\`
-          • SUSFS: \`Enabled (GKI A13-5.15)\`
+          • SUSFS: \`Enabled\`
           • LTO: \`Full\`
           • Optimization: \`-O2\`
           • BBG: \`Enabled\`
@@ -382,13 +419,6 @@ jobs:
           • Redmi Note 12 4G/NFC
           • Redmi Note 13 4G/NFC
           • Redmi Pad SE
-          📱 *Supported Manager:*
-          • KSU by tiann
-          • KSU by sidex15
-          • Wild-KSU
-          • KernelSU-Next
-          • Rissu-KSU
-          • KowSU
           🕐 *Build Date:* $(date '+%Y-%m-%d %H:%M:%S UTC')
           📦 *Package:* \`${{ env.ZIP_NAME }}\`
           ⬇️ [Download Here]($RELEASE_URL)"
@@ -406,7 +436,7 @@ jobs:
           • Android: \`13-16\`
           • Base: \`GKI\`
           • KSU: \`Wild KSU (canary)\`
-          • SUSFS: \`Enabled (GKI A13-5.15)\`
+          • SUSFS: \`Enabled\`
           • LTO: \`Full\`
           • Optimization: \`-O2\`
           • BBG: \`Enabled\`
