@@ -80,7 +80,7 @@ jobs:
             local url="$1"
             local file=$(basename "$url")
             curl -L -o "$file" "$url"
-            patch -p1 < "$file" || true
+            patch -p1 --forward < "$file" 2>/dev/null || echo "⚠ Skipping $file"
             rm -f "$file"
           }
 
@@ -91,6 +91,7 @@ jobs:
             "https://raw.githubusercontent.com/topnotchfreaks/kernel_patches/main/0001-scripts-do-not-ship-full-auto_localversion.patch"; do
             apply_patch "$p"
           done
+          echo "✅ Patches applied"
 
       - name: "🔧 Serial spoof patch"
         working-directory: ./${{ env.KERNEL_LOC_DIR }}/${{ env.KERNEL_NAME }}
@@ -123,13 +124,23 @@ jobs:
               return count;
           }
           
+          #if LINUX_VERSION_CODE >= KERNEL_VERSION(5,6,0)
+          static const struct proc_ops spoof_proc_ops = {
+              .proc_write = spoof_write,
+          };
+          #else
           static const struct file_operations spoof_fops = {
               .write = spoof_write,
           };
+          #endif
           
           static int __init init_spoof_trigger(void)
           {
+          #if LINUX_VERSION_CODE >= KERNEL_VERSION(5,6,0)
+              proc_create("apply_spoof", 0200, NULL, &spoof_proc_ops);
+          #else
               proc_create("apply_spoof", 0200, NULL, &spoof_fops);
+          #endif
               return 0;
           }
           late_initcall(init_spoof_trigger);
