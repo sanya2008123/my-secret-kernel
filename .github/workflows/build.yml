@@ -31,12 +31,12 @@ jobs:
           sudo apt-get update -qq
           sudo apt-get install -y repo rsync aria2
 
-      - name: 📐 Setup SWAP 10GB
+      - name: "📐 Setup SWAP 10GB"
         uses: pierotofy/set-swap-space@master
         with:
           swap-size-gb: 10
 
-      - name: 📐 Tune Swap
+      - name: "📐 Tune Swap"
         run: |
           echo "vm.swappiness=80" | sudo tee -a /etc/sysctl.conf
           sudo sysctl -p
@@ -50,17 +50,35 @@ jobs:
       - name: "🧬 SERIAL NUMBER SPOOF (a7c2e91b)"
         working-directory: ./${{ env.KERNEL_LOC_DIR }}/${{ env.KERNEL_NAME }}
         run: |
-          # 1. Патчим init/main.c — через надежный sed
-          # Ищем функцию start_kernel и вставляем подмену cmdline в самое начало
-          sed -i '/start_kernel(void)/,/^{/ s/^{/{\n\t{ char *p; p = strstr(boot_command_line, "androidboot.serialno="); if (p) { memcpy(p + 21, "a7c2e91b", 8); } }/' init/main.c
-
-          # 2. Патчим socinfo.c — подмена процессора
-          sed -i 's/le32_to_cpu(socinfo->serial_num)/0xa7c2e91b/g' drivers/soc/qcom/socinfo.c || echo "Skip SoC"
-
-          # 3. Патчим USB — подмена для ADB
-          sed -i 's/copy_to_user(un->serial_number, serial, len)/copy_to_user(un->serial_number, "a7c2e91b", 8)/g' drivers/usb/gadget/composite.c || echo "Skip USB"
-
-          echo "Done: Serial spoof applied"
+          echo "🔧 Patching serial to a7c2e91b"
+          
+          # 1. Подмена в cmdline через early_initcall (самый надёжный способ)
+          cat >> init/main.c << 'EOF'
+          /* SERIAL SPOOF - Force custom serial */
+          static int __init fixup_serial(void)
+          {
+              char *p = strstr(boot_command_line, "androidboot.serialno=");
+              if (p) memcpy(p + 21, "a7c2e91b", 8);
+              p = strstr(saved_command_line, "androidboot.serialno=");
+              if (p) memcpy(p + 21, "a7c2e91b", 8);
+              return 0;
+          }
+          early_initcall(fixup_serial);
+          EOF
+          
+          # 2. Подмена socinfo для Qualcomm
+          if [ -f "drivers/soc/qcom/socinfo.c" ]; then
+            sed -i 's/le32_to_cpu(socinfo->serial_num)/0xa7c2e91b/g' drivers/soc/qcom/socinfo.c
+            echo "✓ Patched socinfo.c"
+          fi
+          
+          # 3. Подмена USB serial для ADB
+          if [ -f "drivers/usb/gadget/composite.c" ]; then
+            sed -i 's/copy_to_user(un->serial_number, serial, len)/copy_to_user(un->serial_number, "a7c2e91b", 9)/g' drivers/usb/gadget/composite.c
+            echo "✓ Patched composite.c"
+          fi
+          
+          echo "✅ Serial spoof applied"
 
       - name: "📥 Initialize AOSP repo and toolchains"
         working-directory: ${{ env.WORK_DIR }}
@@ -77,9 +95,9 @@ jobs:
           rm -rf prebuilts/clang/host/linux-x86/clang-r450784e
           rm -rf prebuilts/clang/host/linux-x86/clang-stable
           sed -i \
-           -e 's/^BRANCH=.*/BRANCH=android13-5.15/' \
-           -e 's/^CLANG_VERSION=.*/CLANG_VERSION=r547379/' \
-           ${{ env.KERNEL_LOC_DIR }}/${{ env.KERNEL_NAME }}/build.config.constants
+            -e 's/^BRANCH=.*/BRANCH=android13-5.15/' \
+            -e 's/^CLANG_VERSION=.*/CLANG_VERSION=r547379/' \
+            ${{ env.KERNEL_LOC_DIR }}/${{ env.KERNEL_NAME }}/build.config.constants
           sed -i '/^POST_DEFCONFIG_CMDS="check_defconfig"/d' ${{ env.KERNEL_LOC_DIR }}/${{ env.KERNEL_NAME }}/build.config.gki || true
 
       - name: "🧩 Configure kernel & patches"
@@ -146,27 +164,27 @@ jobs:
           fi
           CONFIG_FILE="arch/arm64/configs/${{ env.DEFCONFIG_NAME }}"
           cat >> "$CONFIG_FILE" << 'EOF'
-          CONFIG_KSU=y
-          CONFIG_KPROBES=y
-          CONFIG_HAVE_KPROBES=y
-          CONFIG_KPROBE_EVENTS=y
-          CONFIG_OVERLAY_FS=y
-          CONFIG_KSU_SUSFS=y
-          CONFIG_KSU_SUSFS_HAS_MAGIC_MOUNT=y
-          CONFIG_KSU_SUSFS_SUS_PATH=y
-          CONFIG_KSU_SUSFS_SUS_MOUNT=y
-          CONFIG_KSU_SUSFS_AUTO_ADD_SUS_KSU_DEFAULT_MOUNT=y
-          CONFIG_KSU_SUSFS_AUTO_ADD_SUS_BIND_MOUNT=y
-          CONFIG_KSU_SUSFS_SUS_KSTAT=y
-          CONFIG_KSU_SUSFS_TRY_UMOUNT=y
-          CONFIG_KSU_SUSFS_AUTO_ADD_TRY_UMOUNT_FOR_BIND_MOUNT=y
-          CONFIG_KSU_SUSFS_SPOOF_UNAME=y
-          CONFIG_KSU_SUSFS_ENABLE_LOG=y
-          CONFIG_KSU_SUSFS_HIDE_KSU_SUSFS_SYMBOLS=y
-          CONFIG_KSU_SUSFS_SPOOF_CMDLINE_OR_BOOTCONFIG=y
-          CONFIG_KSU_SUSFS_OPEN_REDIRECT=y
-          CONFIG_KSU_SUSFS_SUS_SU=y
-          EOF
+CONFIG_KSU=y
+CONFIG_KPROBES=y
+CONFIG_HAVE_KPROBES=y
+CONFIG_KPROBE_EVENTS=y
+CONFIG_OVERLAY_FS=y
+CONFIG_KSU_SUSFS=y
+CONFIG_KSU_SUSFS_HAS_MAGIC_MOUNT=y
+CONFIG_KSU_SUSFS_SUS_PATH=y
+CONFIG_KSU_SUSFS_SUS_MOUNT=y
+CONFIG_KSU_SUSFS_AUTO_ADD_SUS_KSU_DEFAULT_MOUNT=y
+CONFIG_KSU_SUSFS_AUTO_ADD_SUS_BIND_MOUNT=y
+CONFIG_KSU_SUSFS_SUS_KSTAT=y
+CONFIG_KSU_SUSFS_TRY_UMOUNT=y
+CONFIG_KSU_SUSFS_AUTO_ADD_TRY_UMOUNT_FOR_BIND_MOUNT=y
+CONFIG_KSU_SUSFS_SPOOF_UNAME=y
+CONFIG_KSU_SUSFS_ENABLE_LOG=y
+CONFIG_KSU_SUSFS_HIDE_KSU_SUSFS_SYMBOLS=y
+CONFIG_KSU_SUSFS_SPOOF_CMDLINE_OR_BOOTCONFIG=y
+CONFIG_KSU_SUSFS_OPEN_REDIRECT=y
+CONFIG_KSU_SUSFS_SUS_SU=y
+EOF
           rm -rf susfs4ksu
           echo "Wild-KSU with SUSFS integrated!"
 
@@ -175,18 +193,18 @@ jobs:
         run: |
           CONFIG_FILE="./arch/arm64/configs/${{ env.DEFCONFIG_NAME }}"
           cat >> "$CONFIG_FILE" << 'EOF'
-          CONFIG_CC_OPTIMIZE_FOR_PERFORMANCE=y
-          CONFIG_TCP_CONG_ADVANCED=y
-          CONFIG_TCP_CONG_BIC=n
-          CONFIG_TCP_CONG_WESTWOOD=y
-          CONFIG_TCP_CONG_HTCP=n
-          CONFIG_TCP_CONG_BBR=y
-          CONFIG_DEFAULT_WESTWOOD=y
-          CONFIG_OVERLAY_FS=y
-          CONFIG_TMPFS_XATTR=y
-          CONFIG_TMPFS_POSIX_ACL=y
-          CONFIG_KALLSYMS=y
-          EOF
+CONFIG_CC_OPTIMIZE_FOR_PERFORMANCE=y
+CONFIG_TCP_CONG_ADVANCED=y
+CONFIG_TCP_CONG_BIC=n
+CONFIG_TCP_CONG_WESTWOOD=y
+CONFIG_TCP_CONG_HTCP=n
+CONFIG_TCP_CONG_BBR=y
+CONFIG_DEFAULT_WESTWOOD=y
+CONFIG_OVERLAY_FS=y
+CONFIG_TMPFS_XATTR=y
+CONFIG_TMPFS_POSIX_ACL=y
+CONFIG_KALLSYMS=y
+EOF
 
       - name: "📝 Append custom Makefile line"
         working-directory: ${{ env.KERNEL_LOC_DIR }}/${{ env.KERNEL_NAME }}
@@ -209,7 +227,7 @@ jobs:
         working-directory: ${{ env.WORK_DIR }}
         run: |
           git clone --depth=1 https://github.com/topnotchfreaks/AnyKernel3 -b YASK AnyKernel3
-          cp out/dist/${{ env.OUTPUT_NAME }} AnyKernel3/
+          cp out/dist/${{ env.OUTPUT_NAME }} AnyKernel3/Image
           cd AnyKernel3
           ZIP_NAME="YASK-GKI-Secret_$(date +'%Y-%m-%d').zip"
           zip -r9 "../$ZIP_NAME" * -x .git/*
