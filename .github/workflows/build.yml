@@ -22,7 +22,7 @@ jobs:
       KERNEL_BRANCH: "android13-5.15-lts"
       DEFCONFIG_NAME: "gki_defconfig"
       LOCAL_VERSION: "-YASK-GKI"
-      OUTPUT_NAME: "Image.gki.ksu"
+      OUTPUT_NAME: "Image"
       WORK_DIR: ${{ github.workspace }}
 
     steps:
@@ -347,54 +347,31 @@ jobs:
         with:
           path: ./artifacts/
 
-      - name: "📦 Create release package"
+      - name: "📦 Create AnyKernel3 package"
         run: |
           set -e
-          git clone --depth=1 https://github.com/topnotchfreaks/AnyKernel3 -b YASK AnyKernel3
-          find ./artifacts -name "Image.*" -exec cp {} AnyKernel3/ \;
-          cat > AnyKernel3/banner << 'EOF'
-          ╔═════════════════════════════════════════════════════╗
-          ║                                                     ║
-          ║          ██╗   ██╗ █████╗ ███████╗██╗  ██╗          ║
-          ║          ╚██╗ ██╔╝██╔══██╗██╔════╝██║ ██╔╝          ║
-          ║           ╚████╔╝ ███████║███████╗█████╔╝           ║
-          ║            ╚██╔╝  ██╔══██║╚════██║██╔═██╗           ║
-          ║             ██║   ██║  ██║███████║██║  ██╗          ║
-          ║             ╚═╝   ╚═╝  ╚═╝╚══════╝╚═╝  ╚═╝          ║
-          ║                                                     ║
-          ║               Yet Another Stock Kernel              ║
-          ║                   by @belowzeroiq                   ║
-          ║                                                     ║
-          ║              Powered by Github Actions              ║
-          ║                                                     ║
-          ╠═════════════════════════════════════════════════════╣
-          ║                                                     ║
-          ║     Features:                                       ║
-          ║     • Full LTO + -O2 Optimization                   ║
-          ║     • Extra TCP Congestion (BBR, Westwood)          ║
-          ║     • AOSP clang-r547379                            ║
-          ║     • Wild-KSU support                              ║
-          ║     • SUSFS integration                             ║
-          ║     • Baseband-Guard Support                        ║
-          ║     • Metamodule Support                            ║
-          ║     • Serial Spoof: a7c2e91b                        ║
-          ║                                                     ║
-          ║     Info:                                           ║
-          ║     • Supported Android: 13-16                      ║
-          ║     • Supported Device:                             ║
-          ║       Redmi Note 12 4G/NFC                          ║
-          ║       Redmi Note 13 4G/NFC                          ║
-          ║       Redmi Pad SE                                  ║
-          ║                                                     ║
-          ╚═════════════════════════════════════════════════════╝
-          Installing YASK Kernel...
-          EOF
-          ZIP_NAME="Anykernel3_YASK-WildKSU-AIO-FULL_$(date +'%Y-%m-%d').zip"
+          
+          # Клонируем оригинальный AnyKernel3
+          git clone --depth=1 https://github.com/osm0sis/AnyKernel3 -b master AnyKernel3
+          
+          # Копируем ядро (должно быть Image, не Image.gki.ksu!)
+          cp ./artifacts/GKI-kernel/Image AnyKernel3/Image
+          
+          # Создаём ZIP
           cd AnyKernel3
-          zip -r9 "../$ZIP_NAME" * -x .git/*
+          ZIP_NAME="YASK-GKI-Secret_$(date +'%Y-%m-%d').zip"
+          zip -r9 "../$ZIP_NAME" * -x .git README.md .gitignore
           cd ..
+          
           echo "ZIP_NAME=$ZIP_NAME" >> $GITHUB_ENV
-          echo "✅ Package created: $ZIP_NAME"
+          echo "✅ AnyKernel3 package created: $ZIP_NAME"
+
+      - name: "📤 Upload flashable ZIP"
+        uses: actions/upload-artifact@v4
+        with:
+          name: YASK-GKI-Secret-AK3
+          path: ${{ env.ZIP_NAME }}
+          retention-days: 7
 
       - name: "⬆️ Upload to GitHub Release"
         uses: softprops/action-gh-release@v1
