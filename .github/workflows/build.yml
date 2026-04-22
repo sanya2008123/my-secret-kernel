@@ -325,16 +325,22 @@ jobs:
           BUILD_CONFIG=${{ env.KERNEL_LOC_DIR }}/${{ env.KERNEL_NAME }}/build.config.gki.aarch64 \
           build/build.sh -j$(nproc --all)
 
-      - name: "📁 Copy kernel image"
+      - name: "📁 Verify kernel image"
         working-directory: ${{ env.WORK_DIR }}/out/dist
         run: |
-          cp Image "${{ env.OUTPUT_NAME }}"
+          if [ -f "Image" ]; then
+            echo "✅ Kernel image found:"
+            ls -la Image
+          else
+            echo "❌ Kernel image not found!"
+            exit 1
+          fi
 
       - name: "📤 Upload kernel artifact"
         uses: actions/upload-artifact@v4
         with:
           name: GKI-kernel
-          path: ${{ env.WORK_DIR }}/out/dist/${{ env.OUTPUT_NAME }}
+          path: ${{ env.WORK_DIR }}/out/dist/Image
           retention-days: 1
 
   package-kernels:
@@ -354,7 +360,7 @@ jobs:
           # Клонируем оригинальный AnyKernel3
           git clone --depth=1 https://github.com/osm0sis/AnyKernel3 -b master AnyKernel3
           
-          # Копируем ядро (должно быть Image, не Image.gki.ksu!)
+          # Копируем ядро
           cp ./artifacts/GKI-kernel/Image AnyKernel3/Image
           
           # Создаём ZIP
