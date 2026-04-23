@@ -182,7 +182,7 @@ jobs:
               char *match;
               extern char *saved_command_line;
               extern char *saved_boot_config;
-          
+
               /* 1. Spoof cmdline (Android 11 and older) */
               if (saved_command_line) {
                   match = strstr(saved_command_line, "androidboot.serialno=");
@@ -190,19 +190,6 @@ jobs:
                       match += 21;
                       memcpy(match, new_sn, strlen(new_sn));
                       printk(KERN_INFO "YASK: cmdline serial spoofed to %s\n", new_sn);
-                  }
-              }
-              
-              /* 2. Spoof bootconfig (Android 12+) */
-              if (saved_boot_config) {
-                  match = strstr(saved_boot_config, "androidboot.serialno");
-                  if (match) {
-                      match = strstr(match, "\"");
-                      if (match) {
-                          match++; /* Skip the quote */
-                          memcpy(match, new_sn, strlen(new_sn));
-                          printk(KERN_INFO "YASK: bootconfig serial spoofed to %s\n", new_sn);
-                      }
                   }
               }
           }
