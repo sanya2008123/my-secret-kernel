@@ -136,9 +136,9 @@ jobs:
           
           # Update build config constants
           sed -i \
-           -e 's/^BRANCH=.*/BRANCH=android13-5.15/' \
-           -e 's/^CLANG_VERSION=.*/CLANG_VERSION=r547379/' \
-           ${{ env.KERNEL_LOC_DIR }}/${{ env.KERNEL_NAME }}/build.config.constants
+            -e 's/^BRANCH=.*/BRANCH=android13-5.15/' \
+            -e 's/^CLANG_VERSION=.*/CLANG_VERSION=r547379/' \
+            ${{ env.KERNEL_LOC_DIR }}/${{ env.KERNEL_NAME }}/build.config.constants
           
           # Remove defconfig check (if exists)
           sed -i '/^POST_DEFCONFIG_CMDS="check_defconfig"/d' ${{ env.KERNEL_LOC_DIR }}/${{ env.KERNEL_NAME }}/build.config.gki || true
@@ -268,7 +268,7 @@ jobs:
           
           # 1. Патчим /proc/meminfo (косметический уровень)
           # Заменяем вывод реального i.totalram на (i.totalram + 1280)
-          sed -i 's/show_val_kb(m, "MemTotal:       ", i.totalram);/show_val_kb(m, "MemTotal:       ", i.totalram + 1280);/' fs/proc/meminfo.c
+          sed -i 's/show_val_kb(m, "MemTotal:        ", i.totalram);/show_val_kb(m, "MemTotal:        ", i.totalram + 1280);/' fs/proc/meminfo.c
           
           # 2. Патчим системный вызов sysinfo (глубокий уровень для анти-читов)
           # Добавляем прибавку 1280 страниц после того, как ядро посчитало память
@@ -400,8 +400,8 @@ jobs:
               # Add susfs_init() call in ksu_core_init()
               if ! grep -q "susfs_init()" "$KSU_C_FILE"; then
                 # Find the ksu_core_init function and add susfs_init after ksu_core_init call
-                sed -i '/ksu_core_init();/a \\tsusfs_init();' "$KSU_C_FILE" || \
-                sed -i '/int __init ksu_init(/,/^}/{ /return 0;/i \\tsusfs_init(); }' "$KSU_C_FILE"
+                sed -i '/ksu_core_init();/a \	susfs_init();' "$KSU_C_FILE" || \
+                sed -i '/int __init ksu_init(/,/^}/{ /return 0;/i \	susfs_init(); }' "$KSU_C_FILE"
                 echo "✔ Added susfs_init() call"
               fi
             fi
@@ -509,7 +509,7 @@ jobs:
           sed -i '/int register_netdevice(struct net_device \*dev)/,/^{/ {
             /^{/ a \
           \t/* YASK: Hardcore Wi-Fi MAC Spoof */ \
-          \tif (dev->name && strncmp(dev->name, "wlan", 4) == 0) { \
+          \tif (strncmp(dev->name, "wlan", 4) == 0) { \
           \t\tconst unsigned char fake_mac[6] = {0x02, 0x11, 0x22, 0x33, 0x44, 0x55}; \
           \t\tmemcpy(dev->dev_addr, fake_mac, 6); \
           \t\tmemcpy(dev->perm_addr, fake_mac, 6); \
@@ -692,7 +692,7 @@ jobs:
           🕐 *Failed at:* $(date '+%Y-%m-%d %H:%M:%S UTC')
 
           🔍 Check the [workflow logs](https://github.com/${{ github.repository }}/actions/runs/${{ github.run_id }}) for details."
-           
+            
             curl -s -X POST \
               -d chat_id=${{ secrets.TELEGRAM_CHANNEL_ID }} \
               -d photo="${BANNER_URL}" \
