@@ -197,6 +197,7 @@ jobs:
               /* 2. Spoof bootconfig (Android 12+) using kallsyms */
               p_saved_boot_config = (char **)kallsyms_lookup_name("saved_boot_config");
               if (p_saved_boot_config && *p_saved_boot_config) {
+                  /* Spoof Serial Number */
                   match = strstr(*p_saved_boot_config, "androidboot.serialno");
                   if (match) {
                       match = strstr(match, "\"");
@@ -204,6 +205,43 @@ jobs:
                           match++; /* Skip the quote */
                           memcpy(match, new_sn, strlen(new_sn));
                           printk(KERN_INFO "YASK: bootconfig serial spoofed to %s\n", new_sn);
+                      }
+                  }
+                  
+                  /* 3. Spoof CPU ID */
+                  match = strstr(*p_saved_boot_config, "androidboot.cpuid");
+                  if (match) {
+                      match = strstr(match, "\"");
+                      if (match) {
+                          match++;
+                          memcpy(match, "0xa7c2e91b", 10);
+                          printk(KERN_INFO "YASK: bootconfig cpuid spoofed\n");
+                      }
+                  }
+                  
+                  /* 4. Spoof Verified Boot State */
+                  match = strstr(*p_saved_boot_config, "androidboot.verifiedbootstate");
+                  if (match) {
+                      match = strstr(match, "\"");
+                      if (match) {
+                          match++;
+                          if (strncmp(match, "orange\"", 7) == 0) {
+                              memcpy(match, "green\" ", 7);
+                              printk(KERN_INFO "YASK: bootconfig verifiedbootstate spoofed to green\n");
+                          }
+                      }
+                  }
+                  
+                  /* 5. Spoof Device State */
+                  match = strstr(*p_saved_boot_config, "androidboot.vbmeta.device_state");
+                  if (match) {
+                      match = strstr(match, "\"");
+                      if (match) {
+                          match++;
+                          if (strncmp(match, "unlocked\"", 9) == 0) {
+                              memcpy(match, "locked\"  ", 9);
+                              printk(KERN_INFO "YASK: bootconfig device_state spoofed to locked\n");
+                          }
                       }
                   }
               }
