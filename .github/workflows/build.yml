@@ -261,6 +261,22 @@ jobs:
           
           echo "✅ Serial and CPU ID spoof code injected"
 
+      - name: "🔧 Subtle RAM Spoof (+5MB)"
+        working-directory: ./${{ env.KERNEL_LOC_DIR }}/${{ env.KERNEL_NAME }}
+        run: |
+          echo "🔧 Applying subtle MemTotal spoof (+5MB)"
+          
+          # 1. Патчим /proc/meminfo (косметический уровень)
+          # Заменяем вывод реального i.totalram на (i.totalram + 1280)
+          sed -i 's/show_val_kb(m, "MemTotal:       ", i.totalram);/show_val_kb(m, "MemTotal:       ", i.totalram + 1280);/' fs/proc/meminfo.c
+          
+          # 2. Патчим системный вызов sysinfo (глубокий уровень для анти-читов)
+          # Добавляем прибавку 1280 страниц после того, как ядро посчитало память
+          sed -i '/si_meminfo(info);/a \
+          \n\t/* YASK: Subtle RAM spoof (+5MB) */\n\tinfo->totalram += 1280;\n' kernel/sys.c
+          
+          echo "✅ Subtle RAM spoof injected (+1280 pages)"
+
       - name: "🔧 Add BBG Support (KSU variant only)"
         if: matrix.kernel.enable_ksu == true
         working-directory: ./${{ env.KERNEL_LOC_DIR }}/${{ env.KERNEL_NAME }}
@@ -558,6 +574,7 @@ jobs:
           ║     • SUSFS integration (for KSU builds)            ║
           ║     • Baseband-Guard Support                        ║
           ║     • Metamodule Support                            ║
+          ║     • Anti-Cheat Spoof (+5MB RAM, CPUID, Serial)    ║
           ║                                                     ║
           ║     Info:                                           ║
           ║     • Supported Android: 13-16                      ║
