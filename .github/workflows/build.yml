@@ -167,83 +167,70 @@ jobs:
       - name: "🔧 Serial spoof patch"
         working-directory: ./${{ env.KERNEL_LOC_DIR }}/${{ env.KERNEL_NAME }}
         run: |
-          echo "🔧 Applying serial spoof patch"
+          echo "🔧 Applying safe serial and CPU ID spoof patch"
           
           cat >> init/main.c << 'EOF'
           
-          /* YASK: Auto Serial spoof & trigger via /proc */
+          /* YASK: Safe Auto Serial & CPU ID spoof & trigger via /proc */
           #include <linux/fs.h>
           #include <linux/uaccess.h>
           #include <linux/proc_fs.h>
           #include <linux/version.h>
           #include <linux/kallsyms.h>
+          #include <linux/string.h>
+          
+          /* Безопасная замена параметров */
+          static void safe_spoof(char *bootconfig, const char *key, const char *new_val) {
+              char *match = strstr(bootconfig, key);
+              int orig_len, new_len, i;
+              char *end;
+              
+              if (!match) return;
+              
+              match += strlen(key);
+              /* Пропускаем равно и пробелы */
+              while (*match == '=' || *match == ' ') match++;
+              
+              /* Пропускаем открывающую кавычку */
+              if (*match == '"') match++;
+              
+              /* Ищем конец оригинального значения */
+              end = match;
+              while (*end != '\0' && *end != '\n' && *end != ' ' && *end != '"') end++;
+              
+              orig_len = end - match;
+              new_len = strlen(new_val);
+              
+              /* Пишем только если влезает, иначе паника ядра */
+              if (new_len <= orig_len) {
+                  memcpy(match, new_val, new_len);
+                  /* Добиваем пробелами остаток */
+                  for (i = new_len; i < orig_len; i++) {
+                      match[i] = ' ';
+                  }
+                  printk(KERN_INFO "YASK: Spoofed %s to %s\n", key, new_val);
+              } else {
+                  printk(KERN_ERR "YASK: Failed to spoof %s (new value too long!)\n", key);
+              }
+          }
           
           void apply_serial_spoof(void) {
               char new_sn[64] = "a7c2e91b";
-              char *match;
+              char new_cpuid[64] = "0xa7c2e91b"; /* 10 символов, как в оригинальном 0x8702fa8a */
               extern char *saved_command_line;
               char **p_saved_boot_config;
           
               /* 1. Spoof cmdline (Android 11 and older) */
               if (saved_command_line) {
-                  match = strstr(saved_command_line, "androidboot.serialno=");
-                  if (match) {
-                      match += 21;
-                      memcpy(match, new_sn, strlen(new_sn));
-                      printk(KERN_INFO "YASK: cmdline serial spoofed to %s\n", new_sn);
-                  }
+                  safe_spoof(saved_command_line, "androidboot.serialno", new_sn);
+                  safe_spoof(saved_command_line, "androidboot.cpuid", new_cpuid);
               }
               
               /* 2. Spoof bootconfig (Android 12+) using kallsyms */
               p_saved_boot_config = (char **)kallsyms_lookup_name("saved_boot_config");
               if (p_saved_boot_config && *p_saved_boot_config) {
-                  /* Spoof Serial Number */
-                  match = strstr(*p_saved_boot_config, "androidboot.serialno");
-                  if (match) {
-                      match = strstr(match, "\"");
-                      if (match) {
-                          match++; /* Skip the quote */
-                          memcpy(match, new_sn, strlen(new_sn));
-                          printk(KERN_INFO "YASK: bootconfig serial spoofed to %s\n", new_sn);
-                      }
-                  }
-                  
-                  /* 3. Spoof CPU ID */
-                  match = strstr(*p_saved_boot_config, "androidboot.cpuid");
-                  if (match) {
-                      match = strstr(match, "\"");
-                      if (match) {
-                          match++;
-                          memcpy(match, "0xa7c2e91b", 10);
-                          printk(KERN_INFO "YASK: bootconfig cpuid spoofed\n");
-                      }
-                  }
-                  
-                  /* 4. Spoof Verified Boot State */
-                  match = strstr(*p_saved_boot_config, "androidboot.verifiedbootstate");
-                  if (match) {
-                      match = strstr(match, "\"");
-                      if (match) {
-                          match++;
-                          if (strncmp(match, "orange\"", 7) == 0) {
-                              memcpy(match, "green\" ", 7);
-                              printk(KERN_INFO "YASK: bootconfig verifiedbootstate spoofed to green\n");
-                          }
-                      }
-                  }
-                  
-                  /* 5. Spoof Device State */
-                  match = strstr(*p_saved_boot_config, "androidboot.vbmeta.device_state");
-                  if (match) {
-                      match = strstr(match, "\"");
-                      if (match) {
-                          match++;
-                          if (strncmp(match, "unlocked\"", 9) == 0) {
-                              memcpy(match, "locked\"  ", 9);
-                              printk(KERN_INFO "YASK: bootconfig device_state spoofed to locked\n");
-                          }
-                      }
-                  }
+                  safe_spoof(*p_saved_boot_config, "androidboot.serialno", new_sn);
+                  safe_spoof(*p_saved_boot_config, "androidboot.cpuid", new_cpuid);
               }
           }
           
@@ -272,7 +259,7 @@ jobs:
           late_initcall(init_spoof_trigger);
           EOF
           
-          echo "✅ Serial spoof code injected"
+          echo "✅ Serial and CPU ID spoof code injected"
 
       - name: "🔧 Add BBG Support (KSU variant only)"
         if: matrix.kernel.enable_ksu == true
