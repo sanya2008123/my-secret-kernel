@@ -505,16 +505,17 @@ jobs:
         working-directory: ./${{ env.KERNEL_LOC_DIR }}/${{ env.KERNEL_NAME }}
         run: |
           echo "🔧 Injecting MAC spoofing into net/core/dev.c"
-          gawk -i inplace '/int register_netdevice\(struct net_device \*dev\)/ {
-              print; getline; print;
-              if ($0 ~ /{/) {
-                  print "\tif (dev->name && strncmp(dev->name, \"wlan\", 4) == 0) {"
-                  print "\t\tconst unsigned char fake_mac[6] = {0x02, 0x11, 0x22, 0x33, 0x44, 0x55};"
-                  print "\t\tmemcpy(dev->dev_addr, fake_mac, 6);"
-                  print "\t\tmemcpy(dev->perm_addr, fake_mac, 6);"
-                  print "\t}"
-              }
-              next
+          # Вставляем патч сразу после объявления переменной ret, чтобы не нарушать стандарт C90
+          gawk -i inplace '
+          /int ret;/ {
+              print;
+              print "\t/* YASK: Hardcore Wi-Fi MAC Spoof */";
+              print "\tif (strncmp(dev->name, \"wlan\", 4) == 0) {";
+              print "\t\tconst unsigned char fake_mac[6] = {0x02, 0x11, 0x22, 0x33, 0x44, 0x55};";
+              print "\t\tmemcpy(dev->dev_addr, fake_mac, 6);";
+              print "\t\tmemcpy(dev->perm_addr, fake_mac, 6);";
+              print "\t}";
+              next;
           } 1' net/core/dev.c
           echo "✅ MAC spoofing injected"
 
