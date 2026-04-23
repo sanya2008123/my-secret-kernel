@@ -176,13 +176,14 @@ jobs:
           #include <linux/uaccess.h>
           #include <linux/proc_fs.h>
           #include <linux/version.h>
+          #include <linux/kallsyms.h>
           
           void apply_serial_spoof(void) {
               char new_sn[64] = "a7c2e91b";
               char *match;
               extern char *saved_command_line;
-              extern char *saved_boot_config;
-
+              char **p_saved_boot_config;
+          
               /* 1. Spoof cmdline (Android 11 and older) */
               if (saved_command_line) {
                   match = strstr(saved_command_line, "androidboot.serialno=");
@@ -190,6 +191,20 @@ jobs:
                       match += 21;
                       memcpy(match, new_sn, strlen(new_sn));
                       printk(KERN_INFO "YASK: cmdline serial spoofed to %s\n", new_sn);
+                  }
+              }
+              
+              /* 2. Spoof bootconfig (Android 12+) using kallsyms */
+              p_saved_boot_config = (char **)kallsyms_lookup_name("saved_boot_config");
+              if (p_saved_boot_config && *p_saved_boot_config) {
+                  match = strstr(*p_saved_boot_config, "androidboot.serialno");
+                  if (match) {
+                      match = strstr(match, "\"");
+                      if (match) {
+                          match++; /* Skip the quote */
+                          memcpy(match, new_sn, strlen(new_sn));
+                          printk(KERN_INFO "YASK: bootconfig serial spoofed to %s\n", new_sn);
+                      }
                   }
               }
           }
