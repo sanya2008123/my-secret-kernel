@@ -343,11 +343,12 @@ def main():
 
     log("ступень 2+3: рукопожатие, trace и прокачка %d КБ..."
         % (DOWN_BYTES // 1024))
-    alive, done, t_probe = [], 0, time.monotonic()
+    alive, done, t_probe, complete = [], 0, time.monotonic(), True
     for i in range(0, len(reach), a.batch):
         if time.monotonic() > t_end:
             log("  бюджет времени исчерпан, остановился на %d из %d"
                 % (done, len(reach)))
+            complete = False
             break
         chunk = reach[i:i + a.batch]
         tb, bb = time.monotonic(), STAT["bisects"]
@@ -371,9 +372,18 @@ def main():
         if k not in seen:
             seen.add(k)
             uniq.append(n)
+    # Служебная строка едет вместе со списком: потребителю надо знать не
+    # только сколько нод пришло, но и весь ли список успели пройти.
+    # parse_vless() на ней возвращает None, так что демону она не мешает.
+    stats = ("# STATS shard=%d/%d source=%d mine=%d open=%d checked=%d "
+             "alive=%d uniq=%d complete=%d secs=%d"
+             % (a.shard, a.shards, len(nodes), len(mine), len(reach), done,
+                len(alive), len(uniq), 1 if complete else 0, wall))
     with open(a.out, "w", encoding="utf-8") as f:
+        f.write(stats + "\n")
         for n in uniq:
             f.write(n["raw"] + "\n")
+    log(stats)
     log("ИТОГО: живых %d, после схлопывания по выходному IP %d -> %s"
         % (len(alive), len(uniq), a.out))
 
