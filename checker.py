@@ -235,11 +235,17 @@ def write_cfg(nodes, base_port):
     return path
 
 
+# Счётчики, чтобы отвечать на вопрос "почему медленно" замером, а не догадкой.
+STAT = {"bisects": 0, "xray_starts": 0, "probe_ok": 0, "probe_fail": 0,
+        "probe_secs": 0.0, "slowest": 0.0}
+
+
 def check_chunk(nodes, xray, base_port, a):
     """Одна пачка нод под одним процессом xray. -> список выживших."""
     cfg = write_cfg(nodes, base_port)
     proc = subprocess.Popen([xray, "run", "-c", cfg],
                             stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL)
+    STAT["xray_starts"] += 1
     time.sleep(1.5)
     if proc.poll() is not None:
         os.unlink(cfg)
@@ -247,6 +253,7 @@ def check_chunk(nodes, xray, base_port, a):
         # живых соседей. На одиночке сдаёмся: значит, сломана именно она.
         if len(nodes) == 1:
             return []
+        STAT["bisects"] += 1
         mid = len(nodes) // 2
         return (check_chunk(nodes[:mid], xray, base_port, a)
                 + check_chunk(nodes[mid:], xray, base_port + mid, a))
@@ -254,12 +261,20 @@ def check_chunk(nodes, xray, base_port, a):
     try:
         def one(pair):
             i, n = pair
+            t0 = time.monotonic()
             try:
                 loc, ip, got = probe(base_port + i, a.timeout, a.budget)
             except Exception:
+                STAT["probe_fail"] += 1
                 return None
+            finally:
+                dt = time.monotonic() - t0
+                STAT["probe_secs"] += dt
+                STAT["slowest"] = max(STAT["slowest"], dt)
             if got < a.min_bytes:
+                STAT["probe_fail"] += 1
                 return None
+            STAT["probe_ok"] += 1
             n["loc"], n["exit"], n["bytes"] = loc, ip, got
             return n
 
@@ -294,6 +309,8 @@ def main():
     ap.add_argument("--min-bytes", type=int, default=200000)
     ap.add_argument("--base-port", type=int, default=31000)
     ap.add_argument("--deadline-min", type=int, default=280)
+    ap.add_argument("--limit", type=int, default=0,
+                    help="проверить не больше N нод (для замеров)")
     a = ap.parse_args()
 
     t_end = time.monotonic() + a.deadline_min * 60
@@ -320,19 +337,33 @@ def main():
         % (len(reach), len(mine), 100.0 * len(reach) / max(len(mine), 1),
            time.monotonic() - t0))
 
+    if a.limit:
+        reach = reach[:a.limit]
+        log("  ограничение --limit: беру %d" % len(reach))
+
     log("ступень 2+3: рукопожатие, trace и прокачка %d КБ..."
         % (DOWN_BYTES // 1024))
-    alive, done = [], 0
+    alive, done, t_probe = [], 0, time.monotonic()
     for i in range(0, len(reach), a.batch):
         if time.monotonic() > t_end:
             log("  бюджет времени исчерпан, остановился на %d из %d"
                 % (done, len(reach)))
             break
         chunk = reach[i:i + a.batch]
+        tb, bb = time.monotonic(), STAT["bisects"]
         alive += check_chunk(chunk, a.xray, a.base_port, a)
         done += len(chunk)
-        if (i // a.batch) % 10 == 0:
-            log("  %d/%d проверено, живых %d" % (done, len(reach), len(alive)))
+        log("  пачка %3d: %3d нод за %5.1f с, делений %d, живых всего %d"
+            % (i // a.batch + 1, len(chunk), time.monotonic() - tb,
+               STAT["bisects"] - bb, len(alive)))
+    wall = time.monotonic() - t_probe
+    probes = STAT["probe_ok"] + STAT["probe_fail"]
+    log("ЗАМЕР: стена %.0f с | стартов xray %d (делений %d) | зондов %d"
+        % (wall, STAT["xray_starts"], STAT["bisects"], probes))
+    log("ЗАМЕР: суммарно в зондах %.0f с, средний %.1f с, самый долгий %.1f с"
+        % (STAT["probe_secs"], STAT["probe_secs"] / max(probes, 1), STAT["slowest"]))
+    log("ЗАМЕР: эффективная параллельность %.0fx (сумма зондов / стена)"
+        % (STAT["probe_secs"] / max(wall, 1)))
 
     seen, uniq = set(), []
     for n in alive:                    # один сервер приходит под многими
