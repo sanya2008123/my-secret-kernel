@@ -9,6 +9,17 @@ on:
   schedule:
     - cron: '17 3 * * *'
   workflow_dispatch:
+    inputs:
+      batch:
+        description: 'нод на один процесс xray'
+        default: '300'
+      limit:
+        description: 'проверить не больше N нод (0 = все)'
+        default: '0'
+      publish:
+        description: 'отправлять результат в gist'
+        type: boolean
+        default: true
 
 concurrency:
   group: vpn-check
@@ -44,7 +55,9 @@ jobs:
           python3 checker.py \
             --shard ${{ matrix.shard }} --shards 4 \
             --out alive-${{ matrix.shard }}.txt \
-            --batch 300 --tcp-workers 800 \
+            --batch ${{ inputs.batch || '300' }} \
+            --limit ${{ inputs.limit || '0' }} \
+            --tcp-workers 800 \
             --deadline-min 100
 
       - uses: actions/upload-artifact@v4
@@ -57,7 +70,9 @@ jobs:
   publish:
     name: Собрать и отправить
     needs: check
-    if: always()
+    # Замерочный прогон (publish=false) в gist не пишет: иначе частичный
+    # список затёр бы полный.
+    if: always() && (github.event_name == 'schedule' || inputs.publish)
     runs-on: ubuntu-latest
     steps:
       - uses: actions/download-artifact@v4
