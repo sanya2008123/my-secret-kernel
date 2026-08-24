@@ -1,0 +1,98 @@
+name: VPN alive check
+
+# Ничего не коммитит в репозиторий: результат уезжает в secret gist,
+# id и токен которого лежат в секретах. Адрес получателя нигде не светится.
+permissions:
+  contents: read
+
+on:
+  schedule:
+    - cron: '17 3 * * *'
+  workflow_dispatch:
+
+concurrency:
+  group: vpn-check
+  cancel-in-progress: false
+
+jobs:
+  check:
+    name: shard ${{ matrix.shard }}
+    runs-on: ubuntu-latest
+    timeout-minutes: 300
+    strategy:
+      fail-fast: false
+      matrix:
+        shard: [0, 1, 2, 3]
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Поставить xray-core
+        run: |
+          set -e
+          TAG=$(curl -sSL https://api.github.com/repos/XTLS/Xray-core/releases/latest \
+                | python3 -c 'import json,sys; print(json.load(sys.stdin)["tag_name"])')
+          echo "xray $TAG"
+          curl -sSLo xray.zip \
+            "https://github.com/XTLS/Xray-core/releases/download/${TAG}/Xray-linux-64.zip"
+          unzip -q -o xray.zip xray
+          chmod +x xray
+          ./xray version | head -1
+
+      - name: Проверить конфиги
+        run: |
+          ulimit -n 65535 || true
+          python3 checker.py \
+            --shard ${{ matrix.shard }} --shards 4 \
+            --out alive-${{ matrix.shard }}.txt \
+            --deadline-min 280
+
+      - uses: actions/upload-artifact@v4
+        with:
+          name: alive-${{ matrix.shard }}
+          path: alive-${{ matrix.shard }}.txt
+          if-no-files-found: warn
+          retention-days: 1
+
+  publish:
+    name: Собрать и отправить
+    needs: check
+    if: always()
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/download-artifact@v4
+        with:
+          path: parts
+          merge-multiple: true
+
+      - name: Слить шарды
+        run: |
+          cat parts/*.txt 2>/dev/null | grep '^vless://' | sort -u > alive.txt || true
+          echo "строк в alive.txt: $(wc -l < alive.txt)"
+
+      - name: Отправить в gist
+        env:
+          GIST_TOKEN: ${{ secrets.GIST_TOKEN }}
+          GIST_ID: ${{ secrets.GIST_ID }}
+        run: |
+          python3 - <<'PY'
+          import json, os, sys, urllib.request
+
+          body = open("alive.txt", encoding="utf-8").read()
+          n = len([l for l in body.splitlines() if l.strip()])
+          # Пустой результат в gist не пишем. Если прогон развалился, у
+          # потребителя должен остаться вчерашний список, а не ноль нод.
+          if n == 0:
+              print("живых 0 -- gist не трогаю, прошлый список остаётся")
+              sys.exit(1)
+
+          req = urllib.request.Request(
+              "https://api.github.com/gists/" + os.environ["GIST_ID"],
+              data=json.dumps({"files": {"alive.txt": {"content": body}}}).encode(),
+              headers={"Authorization": "Bearer " + os.environ["GIST_TOKEN"],
+                       "Accept": "application/vnd.github+json",
+                       "User-Agent": "vpn-alive-check",
+                       "Content-Type": "application/json"},
+              method="PATCH")
+          with urllib.request.urlopen(req, timeout=60) as r:
+              print("gist обновлён, HTTP", r.status, "| нод:", n)
+          PY
