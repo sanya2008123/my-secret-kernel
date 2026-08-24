@@ -1,2 +1,3 @@
 # дата	нод в списке	из них в пуле	всего в пуле	выдач
 2026-08-24	checked=747	in_pool=174	pool=269	issued=1802
+2026-08-24	got=747	in_pool=173	source=0	scanned=0	full=?	pool=268	issued=1806
