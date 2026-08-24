@@ -28,7 +28,27 @@ from concurrent.futures import ThreadPoolExecutor
 
 BASE = ("https://raw.githubusercontent.com/AvenCores/goida-vpn-configs"
         "/refs/heads/main/githubmirror/%d.txt")
-SOURCES = [BASE % i for i in range(1, 27)]
+# AvenCores -- основной источник, ~100k конфигов. Он же надмножество списка,
+# который тянет сам сервер, так что отдельно проверять серверный смысла нет.
+#
+# Остальные добавлены после того, как отпал довод против слабых источников:
+# пока сервер сканировал сам, они крали у него слоты и роняли выхлоп (замер
+# 23.08: 712 находок в сутки -> 451). Теперь наружу уезжают только
+# проверенные ноды, и слабый список стоит лишь минуты времени раннера.
+# Замер их живости: 1.75% против 6.25% у основного -- около +50 живых нод.
+EXTRA = [
+    "https://raw.githubusercontent.com/mheidari98/.proxy/main/vless",
+    "https://raw.githubusercontent.com/Epodonios/v2ray-configs"
+    "/main/Splitted-By-Protocol/vless.txt",
+    "https://raw.githubusercontent.com/Surfboardv2ray/TGParse/main/splitted/vless",
+    "https://raw.githubusercontent.com/ALIILAPRO/v2rayNG-Config/main/sub.txt",
+    "https://raw.githubusercontent.com/MhdiTaheri/V2rayCollector/main/sub/vless",
+    "https://raw.githubusercontent.com/MatinGhanbari/v2ray-configs"
+    "/main/subscriptions/filtered/subs/vless.txt",
+    "https://raw.githubusercontent.com/Kwinshadow/TelegramV2rayCollector"
+    "/main/sublinks/mix.txt",
+]
+SOURCES = [BASE % i for i in range(1, 27)] + EXTRA
 UA = "Mozilla/5.0 (Windows NT 10.0; Win64; x64)"
 TRACE_HOST, TRACE_PATH = "www.cloudflare.com", "/cdn-cgi/trace"
 DOWN_HOST = "speed.cloudflare.com"
