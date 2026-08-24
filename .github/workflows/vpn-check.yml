@@ -82,8 +82,11 @@ jobs:
 
       - name: Слить шарды
         run: |
-          cat parts/*.txt 2>/dev/null | grep '^vless://' | sort -u > alive.txt || true
-          echo "строк в alive.txt: $(wc -l < alive.txt)"
+          cat parts/*.txt 2>/dev/null | grep '^# STATS' | sort > head.txt || true
+          cat parts/*.txt 2>/dev/null | grep '^vless://' | sort -u > body.txt || true
+          cat head.txt body.txt > alive.txt
+          echo "нод: $(wc -l < body.txt), отчитались шардов: $(wc -l < head.txt)"
+          cat head.txt
 
       - name: Отправить в gist
         env:
@@ -94,7 +97,9 @@ jobs:
           import json, os, sys, urllib.request
 
           body = open("alive.txt", encoding="utf-8").read()
-          n = len([l for l in body.splitlines() if l.strip()])
+          # Считаем только ноды: в файле есть ещё строки "# STATS", и без
+          # этого фильтра шапка без единой ноды сошла бы за успешный прогон.
+          n = len([l for l in body.splitlines() if l.startswith("vless://")])
           # Пустой результат в gist не пишем. Если прогон развалился, у
           # потребителя должен остаться вчерашний список, а не ноль нод.
           if n == 0:
