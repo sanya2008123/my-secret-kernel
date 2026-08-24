@@ -65,9 +65,21 @@ def parse_vless(uri):
         fp = p.get("fp") or "chrome"
         st = {"network": net, "security": sec}
         if sec == "reality":
+            # Reality без публичного ключа сервера нерабочая по определению:
+            # рукопожатие без него не построить, и xray отказывается грузить
+            # такой конфиг целиком ("empty password"), унося с собой всю
+            # пачку. В списках такого мусора 23%, и это 98% всего брака.
+            if not p.get("pbk"):
+                return None
+            sid = p.get("sid", "")
+            if sid:
+                try:
+                    bytes.fromhex(sid)      # xray падает на нешестнадцатеричном
+                except ValueError:
+                    return None
             st["realitySettings"] = {"serverName": sni, "fingerprint": fp,
-                                     "publicKey": p.get("pbk", ""),
-                                     "shortId": p.get("sid", ""),
+                                     "publicKey": p["pbk"],
+                                     "shortId": sid,
                                      "spiderX": p.get("spx", "/")}
         elif sec in ("tls", "xtls"):
             st["security"] = "tls"
@@ -235,28 +247,71 @@ def write_cfg(nodes, base_port):
     return path
 
 
-# Счётчики, чтобы отвечать на вопрос "почему медленно" замером, а не догадкой.
-STAT = {"bisects": 0, "xray_starts": 0, "probe_ok": 0, "probe_fail": 0,
-        "probe_secs": 0.0, "slowest": 0.0}
+STAT = {"rejected": 0, "xray_starts": 0, "probe_ok": 0, "probe_fail": 0,
+        "probe_secs": 0.0, "slowest": 0.0, "not_ready": 0}
+
+TAG_RE = re.compile(r"tag\s+o(\d+)")
+
+
+def sanitize(nodes, xray, base_port):
+    """Убирает из пачки конфиги, которые xray откажется грузить.
+
+    Раньше это выяснялось падением процесса, после чего пачка делилась
+    пополам -- с реальным запуском xray на каждом уровне рекурсии. Замер:
+    82 деления на пачку из 300, 419 с против 11 с у чистой пачки.
+
+    `run -test` разбирает конфиг за ~30 мс, без сети и без запуска сервера,
+    и в тексте ошибки называет тег виноватого аутбаунда. Так что искать
+    перебором нечего: отбрасываем названного и проверяем снова.
+    """
+    good = list(nodes)
+    for _ in range(len(nodes)):
+        cfg = write_cfg(good, base_port)
+        try:
+            r = subprocess.run([xray, "run", "-test", "-c", cfg],
+                               capture_output=True, text=True, timeout=60)
+        finally:
+            os.unlink(cfg)
+        if r.returncode == 0:
+            return good
+        m = TAG_RE.search(r.stdout + r.stderr)
+        if not m or int(m.group(1)) >= len(good):
+            return []          # ошибка не про конкретный аутбаунд -- бракуем всё
+        STAT["rejected"] += 1
+        good.pop(int(m.group(1)))
+        if not good:
+            break
+    return good
+
+
+def wait_ready(port, deadline=15.0):
+    """Ждёт, пока xray поднимет инбаунды. Фиксированный sleep тут врал в обе
+    стороны: на пачке в 300 инбаундов xray мог не успеть, и живые ноды
+    отсеивались как мёртвые, а на маленькой -- зря простаивал."""
+    end = time.monotonic() + deadline
+    while time.monotonic() < end:
+        try:
+            with socket.create_connection(("127.0.0.1", port), timeout=1):
+                return True
+        except OSError:
+            time.sleep(0.05)
+    return False
 
 
 def check_chunk(nodes, xray, base_port, a):
     """Одна пачка нод под одним процессом xray. -> список выживших."""
+    nodes = sanitize(nodes, xray, base_port)
+    if not nodes:
+        return []
     cfg = write_cfg(nodes, base_port)
     proc = subprocess.Popen([xray, "run", "-c", cfg],
                             stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL)
     STAT["xray_starts"] += 1
-    time.sleep(1.5)
-    if proc.poll() is not None:
+    if not wait_ready(base_port):
+        STAT["not_ready"] += 1
+        proc.terminate()
         os.unlink(cfg)
-        # Битый конфиг роняет весь процесс -- делим пополам, чтобы не потерять
-        # живых соседей. На одиночке сдаёмся: значит, сломана именно она.
-        if len(nodes) == 1:
-            return []
-        STAT["bisects"] += 1
-        mid = len(nodes) // 2
-        return (check_chunk(nodes[:mid], xray, base_port, a)
-                + check_chunk(nodes[mid:], xray, base_port + mid, a))
+        return []
     good = []
     try:
         def one(pair):
@@ -351,16 +406,17 @@ def main():
             complete = False
             break
         chunk = reach[i:i + a.batch]
-        tb, bb = time.monotonic(), STAT["bisects"]
+        tb, rb = time.monotonic(), STAT["rejected"]
         alive += check_chunk(chunk, a.xray, a.base_port, a)
         done += len(chunk)
-        log("  пачка %3d: %3d нод за %5.1f с, делений %d, живых всего %d"
+        log("  пачка %3d: %3d нод за %5.1f с, отбраковано %d, живых всего %d"
             % (i // a.batch + 1, len(chunk), time.monotonic() - tb,
-               STAT["bisects"] - bb, len(alive)))
+               STAT["rejected"] - rb, len(alive)))
     wall = time.monotonic() - t_probe
     probes = STAT["probe_ok"] + STAT["probe_fail"]
-    log("ЗАМЕР: стена %.0f с | стартов xray %d (делений %d) | зондов %d"
-        % (wall, STAT["xray_starts"], STAT["bisects"], probes))
+    log("ЗАМЕР: стена %.0f с | стартов xray %d | отбраковано конфигов %d "
+        "| пачек не поднялось %d | зондов %d"
+        % (wall, STAT["xray_starts"], STAT["rejected"], STAT["not_ready"], probes))
     log("ЗАМЕР: суммарно в зондах %.0f с, средний %.1f с, самый долгий %.1f с"
         % (STAT["probe_secs"], STAT["probe_secs"] / max(probes, 1), STAT["slowest"]))
     log("ЗАМЕР: эффективная параллельность %.0fx (сумма зондов / стена)"
