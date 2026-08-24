@@ -16,8 +16,13 @@ concurrency:
 
 jobs:
   check:
+    name: shard ${{ matrix.shard }}
     runs-on: ubuntu-latest
-    timeout-minutes: 300
+    timeout-minutes: 120
+    strategy:
+      fail-fast: false
+      matrix:
+        shard: [0, 1, 2, 3]
     steps:
       - uses: actions/checkout@v4
 
@@ -33,13 +38,37 @@ jobs:
           chmod +x xray
           ./xray version | head -1
 
-      - name: Проверить весь список
+      - name: Проверить свою четверть
         run: |
           ulimit -n 65535 || true
           python3 checker.py \
-            --out alive.txt \
+            --shard ${{ matrix.shard }} --shards 4 \
+            --out alive-${{ matrix.shard }}.txt \
             --batch 300 --tcp-workers 800 \
-            --deadline-min 260
+            --deadline-min 100
+
+      - uses: actions/upload-artifact@v4
+        with:
+          name: alive-${{ matrix.shard }}
+          path: alive-${{ matrix.shard }}.txt
+          if-no-files-found: warn
+          retention-days: 1
+
+  publish:
+    name: Собрать и отправить
+    needs: check
+    if: always()
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/download-artifact@v4
+        with:
+          path: parts
+          merge-multiple: true
+
+      - name: Слить шарды
+        run: |
+          cat parts/*.txt 2>/dev/null | grep '^vless://' | sort -u > alive.txt || true
+          echo "строк в alive.txt: $(wc -l < alive.txt)"
 
       - name: Отправить в gist
         env:
