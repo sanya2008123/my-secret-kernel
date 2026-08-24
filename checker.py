@@ -247,7 +247,7 @@ def write_cfg(nodes, base_port):
     return path
 
 
-STAT = {"rejected": 0, "xray_starts": 0, "probe_ok": 0, "probe_fail": 0,
+STAT = {"rejected": 0, "fallbacks": 0, "xray_starts": 0, "probe_ok": 0, "probe_fail": 0,
         "probe_secs": 0.0, "slowest": 0.0, "not_ready": 0}
 
 TAG_RE = re.compile(r"tag\s+o(\d+)")
@@ -276,11 +276,39 @@ def sanitize(nodes, xray, base_port):
             return good
         m = TAG_RE.search(r.stdout + r.stderr)
         if not m or int(m.group(1)) >= len(good):
-            return []          # ошибка не про конкретный аутбаунд -- бракуем всё
+            # Ошибка не про конкретный аутбаунд. Выбрасывать всю пачку тут
+            # нельзя -- так тихо теряются сотни живых нод; проверяем поштучно.
+            STAT["fallbacks"] += 1
+            log("  -test без тега, перехожу на поштучную: %s"
+                % (r.stdout + r.stderr).strip()[-140:])
+            return sanitize_each(good, xray, base_port)
         STAT["rejected"] += 1
         good.pop(int(m.group(1)))
         if not good:
             break
+    return good
+
+
+def sanitize_each(nodes, xray, base_port):
+    """Запасной путь: каждый конфиг проверяется отдельным -test (~15 мс)."""
+    def ok(n):
+        cfg = write_cfg([n], base_port)
+        try:
+            return subprocess.run([xray, "run", "-test", "-c", cfg],
+                                  stdout=subprocess.DEVNULL,
+                                  stderr=subprocess.DEVNULL,
+                                  timeout=30).returncode == 0
+        except Exception:
+            return False
+        finally:
+            try:
+                os.unlink(cfg)
+            except OSError:
+                pass
+
+    with ThreadPoolExecutor(max_workers=16) as ex:
+        good = [n for n, v in zip(nodes, ex.map(ok, nodes)) if v]
+    STAT["rejected"] += len(nodes) - len(good)
     return good
 
 
@@ -415,8 +443,9 @@ def main():
     wall = time.monotonic() - t_probe
     probes = STAT["probe_ok"] + STAT["probe_fail"]
     log("ЗАМЕР: стена %.0f с | стартов xray %d | отбраковано конфигов %d "
-        "| пачек не поднялось %d | зондов %d"
-        % (wall, STAT["xray_starts"], STAT["rejected"], STAT["not_ready"], probes))
+        "| пачек не поднялось %d | поштучных проверок %d | зондов %d"
+        % (wall, STAT["xray_starts"], STAT["rejected"], STAT["not_ready"],
+           STAT["fallbacks"], probes))
     log("ЗАМЕР: суммарно в зондах %.0f с, средний %.1f с, самый долгий %.1f с"
         % (STAT["probe_secs"], STAT["probe_secs"] / max(probes, 1), STAT["slowest"]))
     log("ЗАМЕР: эффективная параллельность %.0fx (сумма зондов / стена)"
