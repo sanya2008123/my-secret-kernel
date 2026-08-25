@@ -6,8 +6,10 @@ permissions:
   contents: read
 
 on:
-  schedule:
-    - cron: '17 3 * * *'
+  # Крон убран 25.08 по решению владельца: запуск теперь только по запросу
+  # trigger.py (workflow_dispatch), когда остаток предпроверенных нод падает
+  # ниже LOW_WATER. Публикацию в gist это не ломает -- job publish смотрит на
+  # inputs.publish, а он по умолчанию true.
   workflow_dispatch:
     inputs:
       batch:
