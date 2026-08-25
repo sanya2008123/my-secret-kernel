@@ -2,3 +2,4 @@
 2026-08-24	checked=747	in_pool=174	pool=269	issued=1802
 2026-08-24	got=747	in_pool=173	source=0	scanned=0	full=?	pool=268	issued=1806
 2026-08-25	got=1356	in_pool=410	source=100169	scanned=47949	full=yes	pool=482	issued=2277	run=8
+2026-08-25	got=813	in_pool=328	source=100505	scanned=48148	full=yes	pool=528	issued=2466	run=9
