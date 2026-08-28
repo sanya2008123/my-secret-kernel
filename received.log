@@ -1,8 +1,3 @@
-# дата	получено нод	из них в пуле	конфигов в источнике	проверено	прогон полный	всего в пуле	выдач	прогон
-2026-08-24	checked=747	in_pool=174	pool=269	issued=1802
-2026-08-24	got=747	in_pool=173	source=0	scanned=0	full=?	pool=268	issued=1806
-2026-08-25	got=1356	in_pool=410	source=100169	scanned=47949	full=yes	pool=482	issued=2277	run=8
-2026-08-25	got=813	in_pool=328	source=100505	scanned=48148	full=yes	pool=528	issued=2466	run=9
 2026-08-26 07:48	got=1311	in_pool=521	source=101084	scanned=48559	full=yes	pool=639	issued=3019	run=10
 2026-08-27 00:13	got=717	in_pool=731	source=101632	scanned=48555	full=yes	pool=1240	issued=3534	run=11
 2026-08-27 11:53	got=768	in_pool=182	source=101850	scanned=48624	full=yes	pool=232	issued=3996	run=12
