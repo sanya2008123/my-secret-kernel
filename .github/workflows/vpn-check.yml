@@ -40,18 +40,27 @@ jobs:
       - uses: actions/checkout@v4
 
       - name: Поставить xray-core
+        env:
+          # Штатный токен раннера: без него GitHub API отвечает rate limit
+          # (60/час на IP, а IP у раннеров общие) -- без "tag_name", и шард
+          # падал на KeyError. 5 из 40 прогонов умирали именно здесь.
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         run: |
           set -e
-          TAG=$(curl -sSL https://api.github.com/repos/XTLS/Xray-core/releases/latest \
-                | python3 -c 'import json,sys; print(json.load(sys.stdin)["tag_name"])')
+          TAG=""
+          for i in 1 2 3 4 5; do
+            TAG=$(curl -sSL -H "Authorization: Bearer $GH_TOKEN"                   https://api.github.com/repos/XTLS/Xray-core/releases/latest                   | python3 -c 'import json,sys; print(json.load(sys.stdin).get("tag_name",""))' 2>/dev/null)
+            [ -n "$TAG" ] && break
+            sleep 10
+          done
+          [ -n "$TAG" ] || { echo "не получил версию xray-core из GitHub API"; exit 1; }
           echo "xray $TAG"
-          curl -sSLo xray.zip \
-            "https://github.com/XTLS/Xray-core/releases/download/${TAG}/Xray-linux-64.zip"
+          curl -sSLo xray.zip             "https://github.com/XTLS/Xray-core/releases/download/${TAG}/Xray-linux-64.zip"
           unzip -q -o xray.zip xray
           chmod +x xray
           ./xray version | head -1
 
-      - name: Проверить свою четверть
+            - name: Проверить свою четверть
         run: |
           ulimit -n 65535 || true
           python3 checker.py \
