@@ -47,7 +47,42 @@ EXTRA = [
     "/main/subscriptions/filtered/subs/vless.txt",
     "https://raw.githubusercontent.com/Kwinshadow/TelegramV2rayCollector"
     "/main/sublinks/mix.txt",
+    # Пополнение 14.09: замер прироста уникальных (host:port:uid) поверх
+    # старого пула в 102k. Сырые пулы дают объём: LeilaoMi +2584,
+    # 0xRadikal +732, ebrasha +434, VestraNet +417, v2rayfree +39,
+    # ermaozi +18 -- при той же живости 2-6% это ещё ~+100-200 находок.
+    "https://raw.githubusercontent.com/LeilaoMi/AutoMergePublicNodes-Optimized"
+    "/main/output/all.txt",
+    "https://raw.githubusercontent.com/0xRadikal/Free-v2ray-Configs"
+    "/main/protocols/vless.txt",
+    "https://raw.githubusercontent.com/ebrasha/free-v2ray-public-list"
+    "/main/vless_configs.txt",
+    "https://raw.githubusercontent.com/MustafaBaqer/VestraNet-Nodes"
+    "/main/subscriptions/mix-normal.txt",
+    "https://raw.githubusercontent.com/free-nodes/v2rayfree/main/sub",
+    "https://raw.githubusercontent.com/ermaozi/get_subscribe"
+    "/main/subscribe/v2ray.txt",
+    # Проверенные у источника: сами гоняли трафик через xray/sing-box,
+    # обновляют почасово. Объём мал (+200 суммарно), но брака почти нет,
+    # в отличие от 1.75-6.25% у сырых списков.
+    "https://raw.githubusercontent.com/Danialsamadi/v2go"
+    "/main/Splitted-By-Protocol/vless.txt",
+    "https://raw.githubusercontent.com/Danialsamadi/v2go/main/Sub1.txt",
+    "https://raw.githubusercontent.com/0xRadikal/Free-v2ray-Configs"
+    "/main/verified/configs.txt",
+    "https://raw.githubusercontent.com/Au1rxx/free-vpn-subscriptions"
+    "/main/output/all-verified/v2ray-base64-0001.txt",
+    "https://raw.githubusercontent.com/Au1rxx/free-vpn-subscriptions"
+    "/main/output/all-verified/v2ray-base64-0002.txt",
+    "https://raw.githubusercontent.com/Au1rxx/free-vpn-subscriptions"
+    "/main/output/all-verified/v2ray-base64-0005.txt",
+    "https://raw.githubusercontent.com/CaptchaQ/vless-servers"
+    "/main/working_all.txt",
 ]
+# Ревизия 14.09: половина классики (yebekhe, barry-far под старым именем,
+# ripaojiedao, aiboboxx, snakem982, mfuu, soroushmirzaei, vpei, chopfen)
+# отдаёт 404, mahdibland в sub_merge без VLESS. Экосистема переезжает --
+# источники стоит переверять раз в пару месяцев.
 SOURCES = [BASE % i for i in range(1, 27)] + EXTRA
 UA = "Mozilla/5.0 (Windows NT 10.0; Win64; x64)"
 TRACE_HOST, TRACE_PATH = "www.cloudflare.com", "/cdn-cgi/trace"
