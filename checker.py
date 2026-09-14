@@ -78,6 +78,31 @@ EXTRA = [
     "/main/output/all-verified/v2ray-base64-0005.txt",
     "https://raw.githubusercontent.com/CaptchaQ/vless-servers"
     "/main/working_all.txt",
+    # Пополнение 15.09 (волна 2): замер прироста поверх пула в 105.9k.
+    # Сырые пулы: FastNodes/curated +5403 (21% свежести), Pulse +3583 (30%),
+    # V2Hive +699, nikita29/mirror12 +30, Alirewa +29 -- суммарно вход
+    # вырастает примерно до 115k.
+    "https://raw.githubusercontent.com/rtwo2/FastNodes/main/sub/curated.txt",
+    "https://raw.githubusercontent.com/rtwo2/FastNodes/main/sub/top.txt",
+    "https://raw.githubusercontent.com/rtwo2/FastNodes/main/sub/verified.txt",
+    "https://raw.githubusercontent.com/drmikecrypto/PulseConfigs"
+    "/main/protocols/vless.txt",
+    "https://raw.githubusercontent.com/cybersecplayground/V2Hive"
+    "/main/by-protocol/all_vless.txt",
+    "https://raw.githubusercontent.com/nikita29a/FreeProxyList"
+    "/main/mirror/12.txt",
+    "https://raw.githubusercontent.com/Alirewa/V2ray-Configs/main/config.txt",
+    # РФ-специфичные: маленькие, но отобраны под работу из России
+    # (igareck 75-20% свежести, aviaRU 75%) -- выживают за RU-DPI лучше
+    # прочих, дают более живой процент с домашних адресов.
+    "https://raw.githubusercontent.com/igareck/vpn-configs-for-russia"
+    "/main/BLACK_VLESS_RUS.txt",
+    "https://raw.githubusercontent.com/igareck/vpn-configs-for-russia"
+    "/main/BLACK_VLESS_RUS_mobile.txt",
+    "https://raw.githubusercontent.com/aviamastersgh/vpn-free-russia"
+    "/main/ru_configs.txt",
+    "https://raw.githubusercontent.com/R3ZARAHIMI"
+    "/tg-v2ray-configs-every2h/main/Original-Configs.txt",
 ]
 # Ревизия 14.09: половина классики (yebekhe, barry-far под старым именем,
 # ripaojiedao, aiboboxx, snakem982, mfuu, soroushmirzaei, vpei, chopfen)
