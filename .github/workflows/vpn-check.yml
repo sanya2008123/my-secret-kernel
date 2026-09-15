@@ -46,7 +46,7 @@ jobs:
       # конвейер -- шарды просто едут на старых пулах.
       - name: Собрать свежие ноды с каналов
         run: |
-          python tg_collector.py --pages 2 --hours ${{ inputs.tg_hours || '48' }} --workers 16 \
+          python3 tg_collector.py --pages 2 --hours ${{ inputs.tg_hours || '48' }} --workers 16 \
             || echo "::warning::коллектор не собрал свежий слой, едем на старых пулах"
           test -s out/vless_primary.txt || { echo "::warning::слой пуст"; touch out/vless_primary.txt; }
           wc -l out/vless_primary.txt
