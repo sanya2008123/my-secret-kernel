@@ -108,7 +108,10 @@ EXTRA = [
 # ripaojiedao, aiboboxx, snakem982, mfuu, soroushmirzaei, vpei, chopfen)
 # отдаёт 404, mahdibland в sub_merge без VLESS. Экосистема переезжает --
 # источники стоит переверять раз в пару месяцев.
-SOURCES = [BASE % i for i in range(1, 27)] + EXTRA
+# Гибрид: сначала свежий выход коллектора (TG-слой идёт первым по файлу,
+# значит и в проверку попадает первым), затем старые объёмные пулы
+# как хвост -- дедуп по host:port:uid в fetch_all() схлопнет повторы.
+SOURCES = ["out/vless_primary.txt"] + [BASE % i for i in range(1, 27)] + EXTRA
 UA = "Mozilla/5.0 (Windows NT 10.0; Win64; x64)"
 TRACE_HOST, TRACE_PATH = "www.cloudflare.com", "/cdn-cgi/trace"
 DOWN_HOST = "speed.cloudflare.com"
@@ -192,6 +195,12 @@ def parse_vless(uri):
 
 def fetch_all():
     def one(url):
+        if not url.startswith(("http://", "https://")):
+            try:
+                with open(url, encoding="utf-8") as f:
+                    return f.read()
+            except OSError:
+                return ""
         try:
             req = urllib.request.Request(url, headers={"User-Agent": UA})
             with urllib.request.urlopen(req, timeout=30) as r:

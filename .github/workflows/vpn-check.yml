@@ -18,6 +18,9 @@ on:
       limit:
         description: 'проверить не больше N нод (0 = все)'
         default: '0'
+      tg_hours:
+        description: 'окно свежести телеграм-слоя, часов'
+        default: '48'
       publish:
         description: 'отправлять результат в gist'
         type: boolean
@@ -28,8 +31,36 @@ concurrency:
   cancel-in-progress: false
 
 jobs:
+  collect:
+    name: Свежий слой
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@v4
+
+      # Прямое чтение телеграм-каналов через публичное превью t.me/s -- без
+      # аккаунтов и ключей -- плюс прямые статические списки (RF-отборки,
+      # самопроверяющиеся). Свежий слой собирается за минуты, а не ждёт
+      # чужих cron'ов, и едет в checker первым: при нехватке времени
+      # страдает старый хвост, а не он. Падение коллектора не роняет
+      # конвейер -- шарды просто едут на старых пулах.
+      - name: Собрать свежие ноды с каналов
+        run: |
+          python tg_collector.py --pages 2 --hours ${{ inputs.tg_hours || '48' }} --workers 16 \
+            || echo "::warning::коллектор не собрал свежий слой, едем на старых пулах"
+          test -s out/vless_primary.txt || { echo "::warning::слой пуст"; touch out/vless_primary.txt; }
+          wc -l out/vless_primary.txt
+
+      - uses: actions/upload-artifact@v4
+        with:
+          name: primary
+          path: out/vless_primary.txt
+          if-no-files-found: error
+          retention-days: 1
+
   check:
     name: shard ${{ matrix.shard }}
+    needs: collect
     runs-on: ubuntu-latest
     timeout-minutes: 120
     strategy:
@@ -38,6 +69,11 @@ jobs:
         shard: [0, 1, 2, 3]
     steps:
       - uses: actions/checkout@v4
+
+      - uses: actions/download-artifact@v4
+        with:
+          name: primary
+          path: out
 
       - name: Поставить xray-core
         env:
