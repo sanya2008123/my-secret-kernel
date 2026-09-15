@@ -119,15 +119,19 @@ jobs:
     if: always() && (github.event_name == 'schedule' || inputs.publish)
     runs-on: ubuntu-latest
     steps:
+      # pattern обязателен: артефактов в прогоне больше, чем alive-*
+      # (collect кладёт primary с ~22k НЕпроверенных ссылок), и без
+      # фильтра сырой пул уезжал в gist поверх проверенных нод.
       - uses: actions/download-artifact@v4
         with:
           path: parts
+          pattern: alive-*
           merge-multiple: true
 
       - name: Слить шарды
         run: |
-          cat parts/*.txt 2>/dev/null | grep '^# STATS' | sort > head.txt || true
-          cat parts/*.txt 2>/dev/null | grep '^vless://' | sort -u > body.txt || true
+          cat parts/alive-*.txt 2>/dev/null | grep '^# STATS' | sort > head.txt || true
+          cat parts/alive-*.txt 2>/dev/null | grep '^vless://' | sort -u > body.txt || true
           cat head.txt body.txt > alive.txt
           echo "нод: $(wc -l < body.txt), отчитались шардов: $(wc -l < head.txt)"
           cat head.txt
