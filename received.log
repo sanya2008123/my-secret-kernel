@@ -80,3 +80,4 @@
 2026-09-16 05:40	got=1320	in_pool=239	source=117298	scanned=56388	full=yes	pool=288	issued=15843	run=93
 2026-09-16 13:58	got=700	in_pool=196	source=116923	scanned=56295	full=yes	pool=283	issued=16149	run=94
 2026-09-16 18:03	got=643	in_pool=189	source=116627	scanned=56266	full=yes	pool=256	issued=16304	run=95
+2026-09-16 20:04	got=643	in_pool=222	source=116627	scanned=56266	full=yes	pool=271	issued=16395	run=96
