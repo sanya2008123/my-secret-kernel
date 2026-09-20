@@ -111,3 +111,4 @@
 2026-09-20 11:06	got=889	in_pool=365	source=117077	scanned=56184	full=yes	pool=546	issued=19315	run=124
 2026-09-20 15:11	got=870	in_pool=222	source=117201	scanned=56281	full=yes	pool=339	issued=19479	run=125
 2026-09-20 19:14	got=799	in_pool=234	source=117314	scanned=56362	full=yes	pool=303	issued=19643	run=126
+2026-09-20 23:17	got=850	in_pool=252	source=117068	scanned=56082	full=yes	pool=321	issued=19822	run=127
