@@ -103,6 +103,18 @@ EXTRA = [
     "/main/ru_configs.txt",
     "https://raw.githubusercontent.com/R3ZARAHIMI"
     "/tg-v2ray-configs-every2h/main/Original-Configs.txt",
+    # Пополнение 25.09: третий слой -- подписочные эндпоинты, не TG и не
+    # перепродажа. morpheusadam сам ищет сабы по GitHub (harvest.py с
+    # --tree), диалит каждую ссылку перед публикацией, держит пул до 12
+    # дней свежести, крон 12:37 UTC. Замер поверх пула 55.7k: +15206
+    # уникальных (45.5% файла), reality все с pbk, пересечение с чистым
+    # TG-потоком ~0 (1 ключ из 15k против TGParse). VOID -- РФ-кураторка
+    # под вайтлисты без единого t.me в коде, проверяет своим xray,
+    # обновление раз в час: +97 уникальных.
+    "https://raw.githubusercontent.com/morpheusadam/v2ray-config"
+    "/main/subs/bundles/vless.txt",
+    "https://raw.githubusercontent.com/VOID-Anonymity/V.O.I.D-VPN_Bypass"
+    "/main/url_work.txt",
 ]
 # Ревизия 14.09: половина классики (yebekhe, barry-far под старым именем,
 # ripaojiedao, aiboboxx, snakem982, mfuu, soroushmirzaei, vpei, chopfen)
