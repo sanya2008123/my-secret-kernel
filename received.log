@@ -55,3 +55,4 @@
 2026-09-27 15:58	got=637	in_pool=177	source=65536	scanned=42039	full=yes	pool=238	issued=25828	run=201
 2026-09-27 18:10	got=607	in_pool=166	source=65639	scanned=42031	full=yes	pool=226	issued=25889	run=202
 2026-09-27 19:22	got=625	in_pool=151	source=65690	scanned=42075	full=yes	pool=228	issued=25931	run=203
+2026-09-27 20:44	got=634	in_pool=171	source=65772	scanned=42111	full=yes	pool=228	issued=25990	run=204
