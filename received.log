@@ -78,3 +78,4 @@
 2026-09-30 00:42	got=678	in_pool=190	source=65246	scanned=41683	full=yes	pool=245	issued=27778	run=223
 2026-09-30 03:04	got=682	in_pool=201	source=65247	scanned=41730	full=yes	pool=252	issued=27859	run=224
 2026-09-30 04:35	got=1232	in_pool=265	source=65698	scanned=42096	full=yes	pool=321	issued=27918	run=225
+2026-09-30 08:40	got=983	in_pool=266	source=65838	scanned=42075	full=yes	pool=419	issued=28003	run=226
