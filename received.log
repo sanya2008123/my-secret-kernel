@@ -147,3 +147,4 @@
 2026-10-06 18:11	got=601	in_pool=182	source=63830	scanned=40533	full=yes	pool=243	issued=32992	run=294
 2026-10-06 19:02	got=599	in_pool=181	source=63812	scanned=40751	full=yes	pool=246	issued=33021	run=295
 2026-10-06 19:52	got=561	in_pool=188	source=63905	scanned=40802	full=yes	pool=251	issued=33029	run=296
+2026-10-06 21:43	got=585	in_pool=169	source=63972	scanned=40541	full=yes	pool=232	issued=33069	run=297
