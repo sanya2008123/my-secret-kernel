@@ -1,8 +1,8 @@
-# 684 каналов было; аудит 09.10.2026: убрано 181 молчащих >180 дн,
-# добавлено 14 свежих (постят ссылки, последний пост <=30 дн).
-# Итог: 517 каналов. Мёртвых при аудите не найдено; 32 канала
-# без веб-превью читаются mt_reader.py как раньше.
+# Аудит 09.10.2026: 684 -> 517 (убраны молчащие >180 дн, +14 свежих),
+# затем +7 из вылазки субагентов (китайский/сингальский/англ. кластеры,
+# постят сырые vless, у китайских -- 美国/US-ноды). Итог: 524 каналов.
 Awlix_ir
+DATA_HUNTER_VPN_TEAM
 DirectVPN
 EliV2ray
 FreakConfig
@@ -10,6 +10,7 @@ Network_442
 Outline_Vpn
 PrivateVPNs
 ShadowsocksM
+UltraVpnEhi
 V2rayNG3
 VlessConfig
 VmessProtocol
@@ -101,6 +102,7 @@ darkfiilter
 darkvpnpro
 deamnet_proxy
 dextoken_10x
+dingyue_center
 directvpn
 drvpn_net
 earnmoney_arz
@@ -145,6 +147,7 @@ freeownvpn
 freev2rayssr
 freevirgoolnet
 freevpnatm
+freevpnkeys26
 frev2ray
 g0dv2ray
 ge2ray
@@ -357,6 +360,7 @@ turboo_server
 tv2rayrr
 ultranett
 ultrasurf_12
+ultravpnv2ray
 uonvpn
 uvpn_org
 v222ray
@@ -383,6 +387,7 @@ v2ray_alpha
 v2ray_cartel
 v2ray_collector
 v2ray_config_channel
+v2ray_configs_pools
 v2ray_confiig
 v2ray_extractor
 v2ray_fd
@@ -508,6 +513,7 @@ vpnx1x
 vtworay_wolf
 wbnet
 weepeen
+wxdy666
 xgvpn
 xray_config
 xrayconfigs

@@ -138,6 +138,30 @@ EXTRA = [
     "/main/By-protocol/vless.txt",
     "https://raw.githubusercontent.com/3inker/v2ray-subscription"
     "/main/subs/all_not_ru.txt",
+    # Третий слой 09.10 (вылазка субагентов за пределы GitHub). Замер
+    # уникальных поверх пула 89.5k ключей: sevcator (ежечасный сырой
+    # дамп) +44932; kilroy98 -- живой наследник soroushmirzaei, своя
+    # ферма из 837 каналов + разбивка по странам, +40262; whoahaow
+    # (bypass-дамп) +24139; bugbounted (отдельная ветка того же движка)
+    # +1768; хвост: Farid-Karimi +173, kasesm +102, MohammadBahemmat
+    # +31 (380 каналов), AzadNetCH +27. Отвергнуты тем же замером:
+    # Firmfox, SoliSpirit, yitong2333, crackbest, iboxz, F0rc3Run,
+    # NoMoreWalls, mehrtat, free18 и пр. -- 0-2 уникальных, перепродажа.
+    "https://raw.githubusercontent.com/sevcator/5ubscrpt10n"
+    "/main/protocols/vl.txt",
+    "https://raw.githubusercontent.com/kilroy98/telegram-configs-collector3"
+    "/main/protocols/vless",
+    "https://raw.githubusercontent.com/whoahaow/rjsxrd"
+    "/main/githubmirror/bypass/raw/bypass-all-raw.txt",
+    "https://raw.githubusercontent.com/bugbounted/telegram-configs-collector"
+    "/main/protocols/vless",
+    "https://raw.githubusercontent.com/Farid-Karimi/Config-Collector"
+    "/main/vless_iran.txt",
+    "https://raw.githubusercontent.com/kasesm/Free-Config"
+    "/main/vless_raw.txt",
+    "https://raw.githubusercontent.com/MohammadBahemmat/V2ray-Collector"
+    "/main/servers/vless_servers.txt",
+    "https://raw.githubusercontent.com/AzadNetCH/Clash/main/AzadNet.txt",
 ]
 # Ревизия 14.09: половина классики (yebekhe, barry-far под старым именем,
 # ripaojiedao, aiboboxx, snakem982, mfuu, soroushmirzaei, vpei, chopfen)

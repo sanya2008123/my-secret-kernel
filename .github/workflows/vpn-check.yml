@@ -69,7 +69,10 @@ jobs:
     strategy:
       fail-fast: false
       matrix:
-        shard: [0, 1, 2, 3]
+        # 09.10: пул вырос ~89k -> ~180k после третьего слоя источников
+        # (sevcator/kilroy98/whoahaow); 4 шарда перестали проходить список
+        # за deadline 100 мин -- хвост обрезался.
+        shard: [0, 1, 2, 3, 4, 5]
     steps:
       - uses: actions/checkout@v4
 
@@ -100,7 +103,7 @@ jobs:
         run: |
           ulimit -n 65535 || true
           python3 checker.py \
-            --shard ${{ matrix.shard }} --shards 4 \
+            --shard ${{ matrix.shard }} --shards 6 \
             --out alive-${{ matrix.shard }}.txt \
             --batch ${{ inputs.batch || '300' }} \
             --limit ${{ inputs.limit || '0' }} \
