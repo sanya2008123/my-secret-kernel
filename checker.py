@@ -26,8 +26,12 @@ import urllib.parse
 import urllib.request
 from concurrent.futures import ThreadPoolExecutor
 
-BASE = ("https://raw.githubusercontent.com/AvenCores/goida-vpn-configs"
-        "/refs/heads/main/githubmirror/%d.txt")
+# Ревизия 09.10: репозиторий AvenCores с GitHub удалён (404). pog7x/vpn-configs
+# -- его побайтовое зеркало (githubmirror/1..26.txt, ветка master), обновляется
+# тем же cron'ом в течение часа. Запасной вариант -- первоисточник на GitLab:
+# https://gitlab.com/avencores/goida-vpn-configs/-/raw/main/githubmirror/%d.txt
+BASE = ("https://raw.githubusercontent.com/pog7x/vpn-configs/master/"
+        "githubmirror/%d.txt")
 # AvenCores -- основной источник, ~100k конфигов. Он же надмножество списка,
 # который тянет сам сервер, так что отдельно проверять серверный смысла нет.
 #
@@ -115,6 +119,16 @@ EXTRA = [
     "/main/subs/bundles/vless.txt",
     "https://raw.githubusercontent.com/VOID-Anonymity/V.O.I.D-VPN_Bypass"
     "/main/url_work.txt",
+    # Пополнение 09.10 (аудит источников): barry-far вернулся под новым именем
+    # репозитория (старый V2ray-Configs отдаёт 404), 5.8k vless, крон 15 мин.
+    # Xer0x-vless-hub сам валидирует ноды с флагами стран и обновляется
+    # ежедневно (all + fast -- проверенный быстрые); объём мал, брака почти нет.
+    "https://raw.githubusercontent.com/barry-far/v2ray-config"
+    "/main/Splitted-By-Protocol/vless.txt",
+    "https://raw.githubusercontent.com/Realmec21/Xer0x-vless-hub"
+    "/main/subscriptions/all.txt",
+    "https://raw.githubusercontent.com/Realmec21/Xer0x-vless-hub"
+    "/main/subscriptions/fast.txt",
 ]
 # Ревизия 14.09: половина классики (yebekhe, barry-far под старым именем,
 # ripaojiedao, aiboboxx, snakem982, mfuu, soroushmirzaei, vpei, chopfen)
@@ -458,6 +472,9 @@ def check_chunk(nodes, xray, base_port, a):
             if got < a.min_bytes:
                 STAT["probe_fail"] += 1
                 return None
+            if a.geo_set and loc not in a.geo_set:
+                STAT["probe_fail"] += 1
+                return None
             STAT["probe_ok"] += 1
             n["loc"], n["exit"], n["bytes"] = loc, ip, got
             return n
@@ -493,9 +510,15 @@ def main():
     ap.add_argument("--min-bytes", type=int, default=200000)
     ap.add_argument("--base-port", type=int, default=31000)
     ap.add_argument("--deadline-min", type=int, default=280)
+    ap.add_argument("--geo", default="",
+                    help="держать только ноды со страной выхода из списка "
+                         "US,CA (пусто = все страны)")
     ap.add_argument("--limit", type=int, default=0,
                     help="проверить не больше N нод (для замеров)")
     a = ap.parse_args()
+    # Страна выхода известна только после зонда, до него CDN-фронтовые ноды
+    # гео не отличить -- фильтр применяется в one(), а не на входе.
+    a.geo_set = {x.strip().upper() for x in a.geo.split(",") if x.strip()}
 
     t_end = time.monotonic() + a.deadline_min * 60
     log("тяну источники...")
@@ -562,9 +585,10 @@ def main():
     # только сколько нод пришло, но и весь ли список успели пройти.
     # parse_vless() на ней возвращает None, так что демону она не мешает.
     stats = ("# STATS shard=%d/%d source=%d mine=%d open=%d checked=%d "
-             "alive=%d uniq=%d complete=%d secs=%d"
+             "alive=%d uniq=%d complete=%d secs=%d geo=%s"
              % (a.shard, a.shards, len(nodes), len(mine), len(reach), done,
-                len(alive), len(uniq), 1 if complete else 0, wall))
+                len(alive), len(uniq), 1 if complete else 0, wall,
+                ",".join(sorted(a.geo_set)) or "all"))
     with open(a.out, "w", encoding="utf-8") as f:
         f.write(stats + "\n")
         for n in uniq:

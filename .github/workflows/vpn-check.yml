@@ -25,6 +25,9 @@ on:
         description: 'отправлять результат в gist'
         type: boolean
         default: true
+      geo:
+        description: 'страны выхода через запятую (US,CA); пусто = все'
+        default: ''
 
 concurrency:
   group: vpn-check
@@ -102,7 +105,8 @@ jobs:
             --batch ${{ inputs.batch || '300' }} \
             --limit ${{ inputs.limit || '0' }} \
             --tcp-workers 800 \
-            --deadline-min 100
+            --deadline-min 100 \
+            --geo '${{ inputs.geo || '' }}'
 
       - uses: actions/upload-artifact@v4
         with:
@@ -140,6 +144,7 @@ jobs:
         env:
           GIST_TOKEN: ${{ secrets.GIST_TOKEN }}
           GIST_ID: ${{ secrets.GIST_ID }}
+          GEO: ${{ inputs.geo || '' }}
         run: |
           python3 - <<'PY'
           import json, os, sys, urllib.request
@@ -154,14 +159,20 @@ jobs:
               print("живых 0 -- gist не трогаю, прошлый список остаётся")
               sys.exit(1)
 
+          # Прогон с гео-фильтром пишет отдельный файл: общий alive.txt
+          # остаётся полным списком, а US-сервер читает alive_US.txt из
+          # той же гисты. PATCH трогает только названный файл.
+          geo = os.environ.get("GEO", "").strip()
+          name = ("alive_%s.txt" % geo.replace(",", "").upper()) if geo else "alive.txt"
+
           req = urllib.request.Request(
               "https://api.github.com/gists/" + os.environ["GIST_ID"],
-              data=json.dumps({"files": {"alive.txt": {"content": body}}}).encode(),
+              data=json.dumps({"files": {name: {"content": body}}}).encode(),
               headers={"Authorization": "Bearer " + os.environ["GIST_TOKEN"],
                        "Accept": "application/vnd.github+json",
                        "User-Agent": "vpn-alive-check",
                        "Content-Type": "application/json"},
               method="PATCH")
           with urllib.request.urlopen(req, timeout=60) as r:
-              print("gist обновлён, HTTP", r.status, "| нод:", n)
+              print("gist обновлён (%s), HTTP" % name, r.status, "| нод:", n)
           PY
