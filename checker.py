@@ -129,6 +129,15 @@ EXTRA = [
     "/main/subscriptions/all.txt",
     "https://raw.githubusercontent.com/Realmec21/Xer0x-vless-hub"
     "/main/subscriptions/fast.txt",
+    # Второй заход 09.10 (по спискам источников MatinGhanbari и NiREvil):
+    # 4Diana -- рекомендация NiREvil/vless, +876 уникальных поверх пула.
+    # 3inker -- русский коллектор-проверщик, ветка not-RU: +115 уникальных.
+    # YawStar/Proxy-Hunter и freenodess проверены и не добавлены:
+    # прирост +1 и +8 ключей -- полностью пересекаются с пулом.
+    "https://raw.githubusercontent.com/EEvanescence/4Diana"
+    "/main/By-protocol/vless.txt",
+    "https://raw.githubusercontent.com/3inker/v2ray-subscription"
+    "/main/subs/all_not_ru.txt",
 ]
 # Ревизия 14.09: половина классики (yebekhe, barry-far под старым именем,
 # ripaojiedao, aiboboxx, snakem982, mfuu, soroushmirzaei, vpei, chopfen)
