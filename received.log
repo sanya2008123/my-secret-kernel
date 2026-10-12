@@ -2,3 +2,4 @@
 2026-10-12 12:22	got=790	in_pool=428	source=167651	scanned=95251	full=yes	pool=647	issued=37896	run=362
 2026-10-12 16:25	got=646	in_pool=216	source=167646	scanned=95119	full=yes	pool=276	issued=38062	run=363
 2026-10-12 17:06	got=660	in_pool=219	source=167612	scanned=95097	full=yes	pool=280	issued=38091	run=364
+2026-10-12 17:57	got=660	in_pool=224	source=167612	scanned=95097	full=yes	pool=277	issued=38131	run=365
