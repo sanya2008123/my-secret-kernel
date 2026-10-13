@@ -10,3 +10,4 @@
 2026-10-12 22:13	got=581	in_pool=193	source=167510	scanned=94968	full=yes	pool=256	issued=38294	run=370
 2026-10-12 23:03	got=605	in_pool=190	source=167556	scanned=94999	full=yes	pool=249	issued=38329	run=371
 2026-10-13 03:09	got=882	in_pool=208	source=167959	scanned=95269	full=yes	pool=261	issued=38463	run=372
+2026-10-13 07:21	got=1257	in_pool=254	source=167791	scanned=95061	full=yes	pool=314	issued=38612	run=373
