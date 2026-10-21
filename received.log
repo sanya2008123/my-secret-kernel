@@ -101,3 +101,4 @@
 2026-10-20 19:59	got=707	in_pool=213	source=167856	scanned=95623	full=yes	pool=310	issued=44185	run=460
 2026-10-20 23:50	got=680	in_pool=209	source=167823	scanned=92313	full=yes	pool=310	issued=44185	run=461
 2026-10-21 03:50	got=1033	in_pool=207	source=167821	scanned=95678	full=yes	pool=307	issued=44185	run=462
+2026-10-21 07:52	got=1015	in_pool=205	source=168023	scanned=95855	full=yes	pool=306	issued=44185	run=463
