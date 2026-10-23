@@ -130,3 +130,4 @@
 2026-10-23 13:57	got=656	in_pool=72	source=168212	scanned=96181	full=yes	pool=153	issued=45459	run=489
 2026-10-23 14:48	got=777	in_pool=99	source=168211	scanned=96143	full=yes	pool=142	issued=45467	run=490
 2026-10-23 15:48	got=817	in_pool=105	source=168225	scanned=96059	full=yes	pool=141	issued=45467	run=491
+2026-10-23 16:58	got=816	in_pool=40	source=168416	scanned=96219	full=yes	pool=54	issued=45471	run=492
