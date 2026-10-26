@@ -160,3 +160,4 @@
 2026-10-26 08:46	got=834	in_pool=127	source=171877	scanned=97963	full=yes	pool=149	issued=46116	run=519
 2026-10-26 09:04	got=834	in_pool=127	source=171877	scanned=97963	full=yes	pool=148	issued=46116	run=-
 2026-10-26 12:51	got=681	in_pool=163	source=171885	scanned=97855	full=yes	pool=196	issued=46116	run=520
+2026-10-26 16:52	got=652	in_pool=154	source=172018	scanned=97979	full=yes	pool=189	issued=46170	run=521
