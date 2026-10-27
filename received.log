@@ -178,3 +178,4 @@
 2026-10-27 22:30	got=548	in_pool=147	source=172267	scanned=98156	full=yes	pool=178	issued=46933	run=536
 2026-10-28 00:30	got=577	in_pool=149	source=172074	scanned=98115	full=yes	pool=175	issued=46992	run=537
 2026-10-28 01:21	got=575	in_pool=156	source=172001	scanned=98028	full=yes	pool=185	issued=47015	run=538
+2026-10-28 02:01	got=580	in_pool=142	source=172011	scanned=98000	full=yes	pool=175	issued=47032	run=539
