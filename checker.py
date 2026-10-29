@@ -155,6 +155,24 @@ EXTRA = [
     "/main/vless.txt",
     "https://raw.githubusercontent.com/TheCrowCreature/v2rayExtractor"
     "/main/vless.html",
+    # Волна 5 (30.10, вторая вылазка: гисты/кодопоиск, GitLab/Codeberg/Gitee,
+    # TG-каналы и сайты). Форжи пусты -- клоны igareck и поглощённые зеркала;
+    # живые ежедневные TG-каналы дали marg 0-2, RU-кластеры раздают ключи
+    # только через ботов. Прирост снова дали свои валидаторы и гистовый
+    # конвейер: kort0881/vpn-checker-backend -- свой чекер нод, срез RU_Best,
+    # автокоммиты 2 раза в день (BLACK +2370, WHITE +330, union +3039 на
+    # четвёрку); rekt0ro/ProxyRift -- hourly Actions, +224; гист
+    # Darlene-Alderson-FSOCIETY -- сборник брендовых VPN-каналов Telegram,
+    # Actions каждые ~10 мин (+115 головной файл, остальные 17 файлов того
+    # же конвейера дают ещё ~100 -- при необходимости добираются оттуда).
+    "https://raw.githubusercontent.com/kort0881/vpn-checker-backend"
+    "/main/checked/RU_Best/ru_white_all_BLACK.txt",
+    "https://raw.githubusercontent.com/kort0881/vpn-checker-backend"
+    "/main/checked/RU_Best/ru_white_all_WHITE.txt",
+    "https://raw.githubusercontent.com/rekt0ro/ProxyRift"
+    "/main/subscriptions/all.txt",
+    "https://gist.githubusercontent.com/Darlene-Alderson-FSOCIETY"
+    "/86fa5f2ad8ff17c182f4009c87c0911b/raw/HiroVPN_Telegram_RE_s_B.txt",
 ]
 # Ревизия 14.09: половина классики отдаёт 404. Экосистема переезжает --
 # источники стоит переверять раз в пару месяцев.
