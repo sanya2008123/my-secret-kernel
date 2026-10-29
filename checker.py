@@ -26,12 +26,29 @@ import urllib.parse
 import urllib.request
 from concurrent.futures import ThreadPoolExecutor
 
-# Ревизия 09.10: репозиторий AvenCores с GitHub удалён (404). pog7x/vpn-configs
-# -- его побайтовое зеркало (githubmirror/1..26.txt, ветка master), обновляется
-# тем же cron'ом в течение часа. Запасной вариант -- первоисточник на GitLab:
-# https://gitlab.com/avencores/goida-vpn-configs/-/raw/main/githubmirror/%d.txt
+# Ревизия 29.10 (аудит свежести источников): главная причина просадки живых
+# нод -- не объём пула (172k ключей, как и было), а его возраст. Замер по
+# atom-фидам: sevcator/5ubscrpt10n не коммитит с 17.08 (73 дня) -- его 95k
+# ключей заморожены и почти все мертвы, файл 104 МБ качается зря;
+# bugbounted мёртв с 2023-07 (в пул лёгло +1768 трёхлетних ключей);
+# nikita29a/FreeProxyList жив, но ротация ушла с mirror/12.txt на 1.txt
+# (1.txt побайтово совпадает с шардом 1 -- источник целиком бесполезен);
+# mheidari98/.proxy -- побайтовая копия шарда 10 (7.3 МБ мимо кассы).
+# Апстрим AvenCores на GitLab жив (автокоммит ежедневно), у его
+# githubmirror/2.txt 405k vless против 109k у замершего зеркального 2.txt --
+# шард 2 берём напрямую с GitLab.
+#
+# Четыре источника умерли в середине октября (выяснено клонами и редиректами,
+# 29.10): Epodonios/v2ray-configs и ebrasha/free-v2ray-public-list -- аккаунты
+# удалены целиком (нашедшиеся зеркала дают marg 8-36 -- контент уже в пуле);
+# LeilaoMi жив, но output/all.txt переименован в global.txt и сам деградировал
+# до 76 нод (было ~+2.6k); whoahaow/rjsxrd отключил raw-дампы апстримом
+# (теперь за feature-флагами) -- былые +24k уникальных невозвратны.
 BASE = ("https://raw.githubusercontent.com/pog7x/vpn-configs/master/"
         "githubmirror/%d.txt")
+# Замерший шард 2 берём с живого апстрима (см. шапку).
+BASE_GITLAB = ("https://gitlab.com/avencores/goida-vpn-configs/-/raw/main/"
+               "githubmirror/2.txt")
 # AvenCores -- основной источник, ~100k конфигов. Он же надмножество списка,
 # который тянет сам сервер, так что отдельно проверять серверный смысла нет.
 #
@@ -41,136 +58,113 @@ BASE = ("https://raw.githubusercontent.com/pog7x/vpn-configs/master/"
 # проверенные ноды, и слабый список стоит лишь минуты времени раннера.
 # Замер их живости: 1.75% против 6.25% у основного -- около +50 живых нод.
 EXTRA = [
-    "https://raw.githubusercontent.com/mheidari98/.proxy/main/vless",
-    "https://raw.githubusercontent.com/Epodonios/v2ray-configs"
-    "/main/Splitted-By-Protocol/vless.txt",
-    "https://raw.githubusercontent.com/Surfboardv2ray/TGParse/main/splitted/vless",
     "https://raw.githubusercontent.com/ALIILAPRO/v2rayNG-Config/main/sub.txt",
     "https://raw.githubusercontent.com/MhdiTaheri/V2rayCollector/main/sub/vless",
-    "https://raw.githubusercontent.com/MatinGhanbari/v2ray-configs"
-    "/main/subscriptions/filtered/subs/vless.txt",
-    "https://raw.githubusercontent.com/Kwinshadow/TelegramV2rayCollector"
-    "/main/sublinks/mix.txt",
     # Пополнение 14.09: замер прироста уникальных (host:port:uid) поверх
-    # старого пула в 102k. Сырые пулы дают объём: LeilaoMi +2584,
-    # 0xRadikal +732, ebrasha +434, VestraNet +417, v2rayfree +39,
-    # ermaozi +18 -- при той же живости 2-6% это ещё ~+100-200 находок.
-    "https://raw.githubusercontent.com/LeilaoMi/AutoMergePublicNodes-Optimized"
-    "/main/output/all.txt",
+    # старого пула в 102k. Сырые пулы дают объём: 0xRadikal +732,
+    # VestraNet +417 -- при той же живости 2-6% это ещё ~+100-200 находок.
     "https://raw.githubusercontent.com/0xRadikal/Free-v2ray-Configs"
     "/main/protocols/vless.txt",
-    "https://raw.githubusercontent.com/ebrasha/free-v2ray-public-list"
-    "/main/vless_configs.txt",
     "https://raw.githubusercontent.com/MustafaBaqer/VestraNet-Nodes"
     "/main/subscriptions/mix-normal.txt",
-    "https://raw.githubusercontent.com/free-nodes/v2rayfree/main/sub",
-    "https://raw.githubusercontent.com/ermaozi/get_subscribe"
-    "/main/subscribe/v2ray.txt",
-    # Проверенные у источника: сами гоняли трафик через xray/sing-box,
-    # обновляют почасово. Объём мал (+200 суммарно), но брака почти нет,
-    # в отличие от 1.75-6.25% у сырых списков.
-    "https://raw.githubusercontent.com/Danialsamadi/v2go"
-    "/main/Splitted-By-Protocol/vless.txt",
-    "https://raw.githubusercontent.com/Danialsamadi/v2go/main/Sub1.txt",
-    "https://raw.githubusercontent.com/0xRadikal/Free-v2ray-Configs"
-    "/main/verified/configs.txt",
-    "https://raw.githubusercontent.com/Au1rxx/free-vpn-subscriptions"
-    "/main/output/all-verified/v2ray-base64-0001.txt",
-    "https://raw.githubusercontent.com/Au1rxx/free-vpn-subscriptions"
-    "/main/output/all-verified/v2ray-base64-0002.txt",
-    "https://raw.githubusercontent.com/Au1rxx/free-vpn-subscriptions"
-    "/main/output/all-verified/v2ray-base64-0005.txt",
-    "https://raw.githubusercontent.com/CaptchaQ/vless-servers"
-    "/main/working_all.txt",
-    # Пополнение 15.09 (волна 2): замер прироста поверх пула в 105.9k.
-    # Сырые пулы: FastNodes/curated +5403 (21% свежести), Pulse +3583 (30%),
-    # V2Hive +699, nikita29/mirror12 +30, Alirewa +29 -- суммарно вход
-    # вырастает примерно до 115k.
+    # Проверенный у источника: сами гоняли трафик через xray/sing-box,
+    # обновляют почасово. Объём мал, но брака почти нет,
+    # в отличие от 1.75-6.25% у сырых списков. (v2go, Au1rxx, CaptchaQ
+    # вырезаны 29.10: marg 2-9, весь их контент уже в пуле; 0xRadikal
+    # verified тоже -- marg упал с 1 до 0.)
+    # Пополнение 15.09 (волна 2): FastNodes/curated даёт объём и свежесть
+    # (обновление каждые 49 мин, замер 29.10), Pulse -- 2 ч.
+    # top/verified вырезаны 29.10: marg 0, дублируют curated.
     "https://raw.githubusercontent.com/rtwo2/FastNodes/main/sub/curated.txt",
-    "https://raw.githubusercontent.com/rtwo2/FastNodes/main/sub/top.txt",
-    "https://raw.githubusercontent.com/rtwo2/FastNodes/main/sub/verified.txt",
     "https://raw.githubusercontent.com/drmikecrypto/PulseConfigs"
     "/main/protocols/vless.txt",
     "https://raw.githubusercontent.com/cybersecplayground/V2Hive"
     "/main/by-protocol/all_vless.txt",
-    "https://raw.githubusercontent.com/nikita29a/FreeProxyList"
-    "/main/mirror/12.txt",
-    "https://raw.githubusercontent.com/Alirewa/V2ray-Configs/main/config.txt",
     # РФ-специфичные: маленькие, но отобраны под работу из России
     # (igareck 75-20% свежести, aviaRU 75%) -- выживают за RU-DPI лучше
-    # прочих, дают более живой процент с домашних адресов.
+    # прочих, дают более живой процент с домашних адресов. Держим даже при
+    # нулевом marg: на замер день контент совпал с пулом, но это единственные
+    # кураторки под RU-DPI, и их живость мерится не объёмом.
     "https://raw.githubusercontent.com/igareck/vpn-configs-for-russia"
     "/main/BLACK_VLESS_RUS.txt",
-    "https://raw.githubusercontent.com/igareck/vpn-configs-for-russia"
-    "/main/BLACK_VLESS_RUS_mobile.txt",
     "https://raw.githubusercontent.com/aviamastersgh/vpn-free-russia"
     "/main/ru_configs.txt",
-    "https://raw.githubusercontent.com/R3ZARAHIMI"
-    "/tg-v2ray-configs-every2h/main/Original-Configs.txt",
     # Пополнение 25.09: третий слой -- подписочные эндпоинты, не TG и не
     # перепродажа. morpheusadam сам ищет сабы по GitHub (harvest.py с
-    # --tree), диалит каждую ссылку перед публикацией, держит пул до 12
-    # дней свежести, крон 12:37 UTC. Замер поверх пула 55.7k: +15206
-    # уникальных (45.5% файла), reality все с pbk, пересечение с чистым
-    # TG-потоком ~0 (1 ключ из 15k против TGParse). VOID -- РФ-кураторка
-    # под вайтлисты без единого t.me в коде, проверяет своим xray,
-    # обновление раз в час: +97 уникальных.
+    # --tree), диалит каждую ссылку перед публикацией, крон 12:37 UTC.
+    # VOID -- РФ-кураторка, проверяет своим xray, обновление раз в час.
     "https://raw.githubusercontent.com/morpheusadam/v2ray-config"
     "/main/subs/bundles/vless.txt",
     "https://raw.githubusercontent.com/VOID-Anonymity/V.O.I.D-VPN_Bypass"
     "/main/url_work.txt",
-    # Пополнение 09.10 (аудит источников): barry-far вернулся под новым именем
-    # репозитория (старый V2ray-Configs отдаёт 404), 5.8k vless, крон 15 мин.
-    # Xer0x-vless-hub сам валидирует ноды с флагами стран и обновляется
-    # ежедневно (all + fast -- проверенный быстрые); объём мал, брака почти нет.
-    "https://raw.githubusercontent.com/barry-far/v2ray-config"
-    "/main/Splitted-By-Protocol/vless.txt",
+    # Xer0x-vless-hub сам валидирует ноды с флагами стран, обновляется
+    # ежедневно; объём мал, брака почти нет. (barry-far вырезан 29.10:
+    # marg 0 -- весь его слиток уже в шардах и у kilroy98.)
     "https://raw.githubusercontent.com/Realmec21/Xer0x-vless-hub"
     "/main/subscriptions/all.txt",
-    "https://raw.githubusercontent.com/Realmec21/Xer0x-vless-hub"
-    "/main/subscriptions/fast.txt",
-    # Второй заход 09.10 (по спискам источников MatinGhanbari и NiREvil):
-    # 4Diana -- рекомендация NiREvil/vless, +876 уникальных поверх пула.
-    # 3inker -- русский коллектор-проверщик, ветка not-RU: +115 уникальных.
-    # YawStar/Proxy-Hunter и freenodess проверены и не добавлены:
-    # прирост +1 и +8 ключей -- полностью пересекаются с пулом.
+    # 4Diana -- рекомендация NiREvil/vless; 3inker -- русский
+    # коллектор-проверщик, ветка not-RU; Farid-Karimi -- иранский срез.
+    # Все живы (коммиты 29.10).
     "https://raw.githubusercontent.com/EEvanescence/4Diana"
     "/main/By-protocol/vless.txt",
     "https://raw.githubusercontent.com/3inker/v2ray-subscription"
     "/main/subs/all_not_ru.txt",
-    # Третий слой 09.10 (вылазка субагентов за пределы GitHub). Замер
-    # уникальных поверх пула 89.5k ключей: sevcator (ежечасный сырой
-    # дамп) +44932; kilroy98 -- живой наследник soroushmirzaei, своя
-    # ферма из 837 каналов + разбивка по странам, +40262; whoahaow
-    # (bypass-дамп) +24139; bugbounted (отдельная ветка того же движка)
-    # +1768; хвост: Farid-Karimi +173, kasesm +102, MohammadBahemmat
-    # +31 (380 каналов), AzadNetCH +27. Отвергнуты тем же замером:
-    # Firmfox, SoliSpirit, yitong2333, crackbest, iboxz, F0rc3Run,
-    # NoMoreWalls, mehrtat, free18 и пр. -- 0-2 уникальных, перепродажа.
-    "https://raw.githubusercontent.com/sevcator/5ubscrpt10n"
-    "/main/protocols/vl.txt",
-    "https://raw.githubusercontent.com/kilroy98/telegram-configs-collector3"
-    "/main/protocols/vless",
-    "https://raw.githubusercontent.com/whoahaow/rjsxrd"
-    "/main/githubmirror/bypass/raw/bypass-all-raw.txt",
-    "https://raw.githubusercontent.com/bugbounted/telegram-configs-collector"
-    "/main/protocols/vless",
     "https://raw.githubusercontent.com/Farid-Karimi/Config-Collector"
     "/main/vless_iran.txt",
-    "https://raw.githubusercontent.com/kasesm/Free-Config"
-    "/main/vless_raw.txt",
-    "https://raw.githubusercontent.com/MohammadBahemmat/V2ray-Collector"
-    "/main/servers/vless_servers.txt",
-    "https://raw.githubusercontent.com/AzadNetCH/Clash/main/AzadNet.txt",
+    # kilroy98 -- живой наследник soroushmirzaei, своя ферма из 837 каналов
+    # + разбивка по странам; коммит 29.10 (7 ч). Второй живой мега-слой
+    # после ухода sevcator: +33k уникальных поверх пула (замер 29.10).
+    "https://raw.githubusercontent.com/kilroy98/telegram-configs-collector3"
+    "/main/protocols/vless",
+    # Пополнение 29.10 (аудит + вылазка субагентов). Замер marg поверх пула
+    # в 171.7k ключей; свежесть по atom-фидам. Отличие от прежних волн:
+    # "проверенные" источники (валидируют ноды у себя) свой ресурс исчерпали
+    # -- их сырьё уже в пуле, marg 0-1 у всех проверенных. Прирост остался
+    # только у RU-агрегаторов, которых нет в чужих дампах.
+    "https://raw.githubusercontent.com/muks999/Clash-Vless-convert"
+    "/main/vless_lite.txt",
+    "https://raw.githubusercontent.com/Hidashimora/free-vpn-anti-rkn"
+    "/main/configs/32.txt",
+    "https://raw.githubusercontent.com/Hidashimora/free-vpn-anti-rkn"
+    "/main/configs/1.txt",
+    "https://raw.githubusercontent.com/Hidashimora/free-vpn-anti-rkn"
+    "/main/configs/24.txt",
+    "https://raw.githubusercontent.com/Hidashimora/free-vpn-anti-rkn"
+    "/main/configs/26.txt",
+    "https://raw.githubusercontent.com/Hidashimora/free-vpn-anti-rkn"
+    "/main/configs/28.txt",
+    "https://raw.githubusercontent.com/Hidashimora/free-vpn-anti-rkn"
+    "/main/configs/33.txt",
+    "https://raw.githubusercontent.com/Hidashimora/free-vpn-anti-rkn"
+    "/main/configs/8.txt",
+    "https://raw.githubusercontent.com/Hidashimora/free-vpn-anti-rkn"
+    "/main/configs/2.txt",
+    # DarkRoyalty -- TG-агрегатор; servers.json -- JSON-массив ссылок,
+    # fetch_all выдирает vless регэкспом. Сам дамп (githubmirror/*.txt,
+    # 405k vless) уже покрыт пулом, прирост даёт только свежий servers.json.
+    "https://raw.githubusercontent.com/DarkRoyalty/shnajder-vpn-configs"
+    "/main/servers.json",
+    # Волна 4 (29.10, вторая вылазка субагентов): коллекторы со СВОИМИ
+    # TG-каналами вне мейнстрима -- единственный класс, дающий прирост
+    # (мейнстрим-коллекторы поглощены пулом на 97-100%, marg 0-25).
+    # Darmioniks: автокоммиты 4-6 в день, построчный текст, +6199 уникальных.
+    # TheCrowCreature: ~4 коммита в день, файл с расширением .html, но это
+    # чистый построчный vless без тегов (проверено), +4039; пересечение
+    # находок между ними 66 нод -- берутся вместе.
+    "https://raw.githubusercontent.com/Darmioniks/proxy-and-vless-collector"
+    "/main/vless.txt",
+    "https://raw.githubusercontent.com/TheCrowCreature/v2rayExtractor"
+    "/main/vless.html",
 ]
-# Ревизия 14.09: половина классики (yebekhe, barry-far под старым именем,
-# ripaojiedao, aiboboxx, snakem982, mfuu, soroushmirzaei, vpei, chopfen)
-# отдаёт 404, mahdibland в sub_merge без VLESS. Экосистема переезжает --
+# Ревизия 14.09: половина классики отдаёт 404. Экосистема переезжает --
 # источники стоит переверять раз в пару месяцев.
 # Гибрид: сначала свежий выход коллектора (TG-слой идёт первым по файлу,
 # значит и в проверку попадает первым), затем старые объёмные пулы
 # как хвост -- дедуп по host:port:uid в fetch_all() схлопнет повторы.
-SOURCES = ["out/vless_primary.txt"] + [BASE % i for i in range(1, 27)] + EXTRA
+SOURCES = (["out/vless_primary.txt"]
+           + [BASE % i for i in range(1, 27) if i != 2]
+           + [BASE_GITLAB]
+           + EXTRA)
 UA = "Mozilla/5.0 (Windows NT 10.0; Win64; x64)"
 TRACE_HOST, TRACE_PATH = "www.cloudflare.com", "/cdn-cgi/trace"
 DOWN_HOST = "speed.cloudflare.com"
@@ -188,6 +182,13 @@ def log(*a):
 def b64d(s):
     s = s.strip().replace("-", "+").replace("_", "/")
     return base64.b64decode(s + "=" * (-len(s) % 4)).decode("utf-8", "ignore")
+
+
+# vless:// в дикой природе живёт не только построчно: JSON-массивы
+# (DarkRoyalty servers.json), HTML-страницы, склейки без переводов строк.
+# Регэксп выдирает URI из любого текста; жадность ограничена классом
+# "не пробел и не кавычка", фрагменты с именами (%XX) не ломаются.
+VLESS_RE = re.compile(r"vless://[^\s'\"<>\\]+")
 
 
 def parse_vless(uri):
@@ -271,17 +272,26 @@ def fetch_all():
 
     out, seen = [], set()
     with ThreadPoolExecutor(max_workers=8) as ex:
-        for text in ex.map(one, SOURCES):
+        for url, text in zip(SOURCES, ex.map(one, SOURCES)):
+            got = 0
             if text and "://" not in text:
                 try:
                     text = b64d(text)
                 except Exception:
-                    continue
-            for line in text.splitlines():
-                n = parse_vless(line.strip())
+                    text = ""
+            for m in VLESS_RE.finditer(text):
+                n = parse_vless(m.group(0))
                 if n and n["id"] not in seen:
                     seen.add(n["id"])
                     out.append(n)
+                    got += 1
+            # Раньше пустой ответ и формат без vless были неразличимы --
+            # оба молча давали ноль. Источник, который отдаёт 200, но ни
+            # одного конфига (сменился формат, уехала ветка), теперь виден
+            # в логе сразу, а не на следующем аудите.
+            if not got:
+                log("  источник пуст или без vless: %s"
+                    % url.rsplit("/", 1)[-1])
     return out
 
 
@@ -398,7 +408,12 @@ def write_cfg(nodes, base_port):
 STAT = {"rejected": 0, "fallbacks": 0, "xray_starts": 0, "probe_ok": 0, "probe_fail": 0,
         "probe_secs": 0.0, "slowest": 0.0, "not_ready": 0}
 
-TAG_RE = re.compile(r"tag\s+o(\d+)")
+# xray называет виноватый аутбаунд в тексте ошибки: "... with tag out12 ...".
+# Регулярка должна совпадать с полным именем тега: вариант "tag o12" не
+# встречается ни в одной версии, а несовпадение уводило КАЖДУЮ пачку с битым
+# конфигом в медленный поштучный путь (замер 29.10: 116 из 118 пачек, 9 с
+# на пачку вместо ~1.5 с).
+TAG_RE = re.compile(r"tag\s+out(\d+)")
 
 
 def sanitize(nodes, xray, base_port):
@@ -548,6 +563,11 @@ def main():
                          "US,CA (пусто = все страны)")
     ap.add_argument("--limit", type=int, default=0,
                     help="проверить не больше N нод (для замеров)")
+    ap.add_argument("--max-per-host", type=int, default=0,
+                    help="брать не больше N конфигов на один host:port "
+                         "(0 = без лимита). Один сервер часто приходит "
+                         "под многими uid: замер 29.10 -- 44k лишних "
+                         "конфигов (26%% пула), максимум 378 на адрес.")
     a = ap.parse_args()
     # Страна выхода известна только после зонда, до него CDN-фронтовые ноды
     # гео не отличить -- фильтр применяется в one(), а не на входе.
@@ -557,9 +577,19 @@ def main():
     log("тяну источники...")
     nodes = fetch_all()
     log("уникальных конфигов с пригодным транспортом: %d" % len(nodes))
+    if a.max_per_host:
+        byhost, trimmed = {}, []
+        for n in nodes:
+            k = (n["host"], n["port"])
+            if byhost.get(k, 0) >= a.max_per_host:
+                continue
+            byhost[k] = byhost.get(k, 0) + 1
+            trimmed.append(n)
+        log("лимит %d конфигов на host:port: %d -> %d"
+            % (a.max_per_host, len(nodes), len(trimmed)))
+        nodes = trimmed
     mine = [n for i, n in enumerate(nodes) if i % a.shards == a.shard]
     log("шард %d/%d -> %d конфигов" % (a.shard, a.shards, len(mine)))
-
     log("ступень 1: TCP...")
     t0 = time.monotonic()
 
