@@ -265,3 +265,4 @@
 2026-11-04 01:59	got=637	in_pool=153	source=185133	scanned=105220	full=yes	pool=180	issued=50830	run=622
 2026-11-04 03:20	got=792	in_pool=176	source=184810	scanned=104872	full=yes	pool=201	issued=50861	run=623
 2026-11-04 07:23	got=756	in_pool=243	source=184925	scanned=104944	full=yes	pool=329	issued=50962	run=624
+2026-11-04 11:28	got=616	in_pool=142	source=184780	scanned=104635	full=yes	pool=193	issued=51065	run=625
