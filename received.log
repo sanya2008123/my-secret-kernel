@@ -301,3 +301,4 @@
 2026-11-07 02:13	got=559	in_pool=160	source=157376	scanned=77629	full=yes	pool=183	issued=52659	run=658
 2026-11-07 03:03	got=586	in_pool=166	source=157133	scanned=77269	full=yes	pool=195	issued=52683	run=659
 2026-11-07 07:15	got=690	in_pool=126	source=157458	scanned=77457	full=yes	pool=155	issued=52753	run=660
+2026-11-07 09:37	got=500	in_pool=133	source=156618	scanned=77199	full=yes	pool=161	issued=52815	run=661
