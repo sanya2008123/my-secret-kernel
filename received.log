@@ -366,3 +366,4 @@
 2026-11-12 14:42	got=484	in_pool=134	source=160731	scanned=79251	full=yes	pool=186	issued=55305	run=725
 2026-11-12 15:43	got=500	in_pool=145	source=160816	scanned=79423	full=yes	pool=191	issued=55334	run=726
 2026-11-13 00:38	got=447	in_pool=134	source=160908	scanned=79664	full=yes	pool=181	issued=55595	run=727
+2026-11-13 01:39	got=465	in_pool=135	source=160975	scanned=79802	full=yes	pool=172	issued=55603	run=728
