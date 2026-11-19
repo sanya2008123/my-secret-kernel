@@ -1,4 +1,3 @@
-2026-10-18 14:14	got=639	in_pool=190	source=168700	scanned=95737	full=yes	pool=289	issued=43167	run=438
 2026-10-18 15:05	got=639	in_pool=194	source=168700	scanned=95737	full=yes	pool=271	issued=43198	run=439
 2026-10-18 15:56	got=662	in_pool=211	source=168709	scanned=95762	full=yes	pool=270	issued=43234	run=440
 2026-10-18 16:46	got=649	in_pool=201	source=168783	scanned=95814	full=yes	pool=273	issued=43273	run=441
@@ -368,3 +367,4 @@
 2026-11-19 13:07	got=383	in_pool=108	source=160770	scanned=80719	full=yes	pool=234	issued=59236	run=803
 2026-11-19 13:58	got=389	in_pool=110	source=160752	scanned=80739	full=yes	pool=228	issued=59265	run=804
 2026-11-19 14:49	got=369	in_pool=116	source=160548	scanned=80558	full=yes	pool=235	issued=59296	run=805
+2026-11-19 15:40	got=364	in_pool=112	source=160795	scanned=80615	full=yes	pool=228	issued=59315	run=806
