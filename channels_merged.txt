@@ -1,28 +1,13 @@
-# Аудит 09.10.2026: 684 -> 517 (убраны молчащие >180 дн, +14 свежих),
-# затем +7 из вылазки субагентов (китайский/сингальский/англ. кластеры,
-# постят сырые vless, у китайских -- 美国/US-ноды). Итог: 524 каналов.
-Awlix_ir
-DATA_HUNTER_VPN_TEAM
-DirectVPN
-EliV2ray
-FreakConfig
-Network_442
-Outline_Vpn
-PrivateVPNs
-ShadowsocksM
-UltraVpnEhi
-V2rayNG3
-VlessConfig
-VmessProtocol
+# Аудит 21.11.2026: из 524 строк минус 29 с выключенным веб-превью
+# (блок внизу) и минус 13 дублей регистром (Awlix_ir/awlix_ir и т.п.,
+# t.me регистронезависим) = 482; субагенты принесли +49 живых (постинг
+# за 2-5 дней, vless в последних постах подтверждён). Итог: 531 каналов.
 abc_configs
 abiidar_server
-ablnet7
 achavpn
 ahmedhamoomi_servers
 ai_duet
 alfred_config
-alialma_gsm
-alpha_v2ray_iran
 alpha_v2rayip
 an0nymousteam
 ange1vpn
@@ -31,7 +16,6 @@ ap_ir6
 apple_x1
 appsooner
 argooo_vpn
-armod_iran
 arshiavpn12
 artemis_vpn_free
 artemisvpn1
@@ -41,7 +25,7 @@ asak_vpn
 atlas_v2vpn
 atovpn
 avaalvpn
-awlix_ir
+Awlix_ir
 azadi_az_inja_migzare
 azadmarz
 azaranv2ray
@@ -53,7 +37,6 @@ bigavpn
 bigsmoke_config
 binextify
 bird_angry
-bisto4_service
 black_raven_ir
 black_vpn1
 blueberrynetwork
@@ -70,10 +53,10 @@ clashv8
 club_profsor
 cnetvpn
 config7x
-configV2rayForFree
-configV2rayNG
+config_azad
 config_fre
 config_proxy
+config_qavi
 configasli
 configfa
 configfori
@@ -83,33 +66,40 @@ configms
 configology
 configpluse
 configprxy
+configraygan
 configs_v2ray
 configscenter
-configv2rayforfree
-configv2rayng
+configshub
+configV2rayForFree
+configV2rayNG
+configx2ray
 confiig_hub
+confing_proxi1
 confing_v2rayy
+confingv2raayng
 confixio
 connectshu
-cov2ray
 customv2ray
 cxrolvpn
 daily_configs
+daily_free_vpn
 dailytek
 daredevill_404
 dargiiriis
 darkfiilter
 darkvpnpro
+DATA_HUNTER_VPN_TEAM
 deamnet_proxy
 dextoken_10x
 dingyue_center
-directvpn
+DirectVPN
 drvpn_net
 earnmoney_arz
 easy_free_vpn
 ehsawn8
 eleven_vpn
-eliv2ray
+EliV2ray
+erfanandroid
 erfjabs
 ev2rayy
 evay_vpn
@@ -118,17 +108,20 @@ expressvpn_420
 farah_vpn
 farahvpn
 farazv2ray
+farsiproxi
 farstar_vpn
 fastkanfig
+fastnettools
 fastvpnorummobile
 father_vpn
 fear_config
 filembad
 filtershekan_channel
 flystoreir
+flyv2ray
 fnet00
 fox_vpn66
-freakconfig
+FreakConfig
 free1_vpn
 free1ss
 free_conf_iran
@@ -136,25 +129,24 @@ free_httpcustom
 free_outline_keys
 free_vpn_ch
 free_vpn_for_all_of_us
+free_world2
 freeconfigforyou
-freeconfigsplus
+freedom_iran_npv
 freedomofinfor
 freeiranianv2rey
 freeland8
 freenettir
 freeonlinevpn
 freeownvpn
-freev2rayssr
 freevirgoolnet
-freevpnatm
 freevpnkeys26
 frev2ray
 g0dv2ray
 ge2ray
+getxconfig
 gh_v2rayng
 ghalagyann2
 ghand_sheken
-ghotb_scarf
 golestan_vpn
 golf_vpn
 gozargahazad
@@ -163,7 +155,7 @@ green_config
 hacknashid
 hesarweb
 hex_proxy
-heyatserver
+hiddifyv2rayconfigs
 hollowcon
 hooshemasnui
 hope_net
@@ -173,18 +165,17 @@ i10vpn
 iaghapour
 icv2ray
 imhdiyvp
-imtproto
-info_2it_channel
 inikotesla
 internet_nor
 ip_cf
-ip_cf_config
 ipstatic1
 ipv2ray
 iran_access
 iran_v2ray1
+iranconnecting
 iraneazad_net
 iranmedicalvpn
+iranping24
 iransoftware90
 iranvpnnet
 irconfiig
@@ -198,7 +189,9 @@ jiedianf
 jiedianssr
 jiujied
 jkvpn
+juzibaipiao
 kafing_2
+kasibam1
 kesslervpn
 key_outline
 keysoutline
@@ -226,12 +219,11 @@ maramvpn1
 masterserver1
 maznet
 mdvpn184
-megavpn_link
+mdvpnsec
 mehduox_vpn
 mehradlearn
 mehrosaboran
 meli_proxyy
-meli_v2rayng
 meliproxyy
 mimitdl
 mobamoz_channel
@@ -244,18 +236,22 @@ mrsoulb
 mt_proxy
 mtmvpn
 mtproxy22_v2ray
-myvless
+namazvpn
 namiraconfigs
 napsternetvirani
 narco_nett
 narcod_ping
 net2proxy
 net2ray
+netazadi
 netfreedom0
 netghjlkj
+netizo
 netmellianti
-network_442
+netshot1
+Network_442
 networld_vpn
+nexus_nett
 nexus_panell
 nim_vpn_ir
 nitroserver_ir
@@ -271,16 +267,17 @@ oneclickvpnkeys
 orange_vpns
 orgempirenet
 outline_ir
-outline_vpn
+Outline_Vpn
 outlineopenkey
 outlinereleasedkey
 outlinev2ray
 outlinevpn_ru
 parsroute
 payam_nsi
+persianvpnhub
 pistachiovpn
 prisonvpnc
-privatevpns
+PrivateVPNs
 probabblynot
 prossh
 proxse11
@@ -292,6 +289,7 @@ proxycrone
 proxyfull
 proxymtalpha
 proxymtproto
+proxymtprotoir
 proxypj
 proxystore11
 proxyvpnvip
@@ -304,10 +302,10 @@ pydriclub
 qrv2ray
 qv2raychannel
 raydikalx
+rayhub_ir
 red2ray
 rojproxy
 rokervpn
-romax_vpn
 rxv2ray
 safenet_server
 safenetir
@@ -324,16 +322,16 @@ seven_ping
 shadowflux2
 shadowsocks_s
 shadowsockskeys
-shadowsocksm
+ShadowsocksM
 shahedtec
 sharecentrepro
-shay_iranux
 shh_proxy
 sia_vpn23
 simchin_ir
 sinavm
 singbox1
 skivpn
+skyliink_vpn
 soliconf
 soskeynet
 soskeynets
@@ -344,23 +342,26 @@ speedconfig00
 spikevpn
 srovpn
 sstpvpn
-strongprotocol
 subgift
 summertimeus
 surfboardv2ray
 svnteam
 sylphnet
 tanhanet
+taziyanteam
 tehranargo
 telmtproto
 tgvpn6
+tik7net_vpn
 tiny_vpn_official
 tootffarangi
 turboo_server
 tv2rayrr
 ultranett
 ultrasurf_12
+UltraVpnEhi
 ultravpnv2ray
+unblocked_ir
 uonvpn
 uvpn_org
 v222ray
@@ -372,16 +373,20 @@ v2all
 v2aryng_vpn
 v2fetch
 v2graphy
+v2hubir
 v2mystery
 v2ngfast
 v2ngnet
 v2nodes
+v2r_ayorg
 v2ra_config
 v2ra_ng_iran
 v2ray03
 v2ray1_ng
+v2ray1ran
+v2ray26
 v2ray313
-v2rayNG_Matsuri
+v2ray45
 v2ray_83
 v2ray_alpha
 v2ray_cartel
@@ -389,15 +394,16 @@ v2ray_collector
 v2ray_config_channel
 v2ray_configs_pools
 v2ray_confiig
+v2ray_dalghak
 v2ray_extractor
 v2ray_fd
 v2ray_free_conf
 v2ray_melli
 v2ray_ng
+v2ray_official
 v2ray_org
 v2ray_phoenix
 v2ray_sos
-v2ray_sub
 v2ray_team
 v2ray_tz
 v2ray_vmes
@@ -411,24 +417,26 @@ v2rayconfigsnn
 v2rayfree_server
 v2rayfreeserver
 v2raying
+v2raylong
 v2raymelliii
-v2rayn5
-v2rayng3
+V2rayNG3
 v2rayng_1378
 v2rayng_channel
 v2rayng_fars
 v2rayng_fast
 v2rayng_ip
-v2rayng_org
+v2rayNG_Matsuri
 v2rayng_spdnet
 v2rayng_v
 v2rayng_vppn
 v2rayngconfig
 v2rayngconfiig
 v2rayngn
+v2rayngraisi
 v2rayngrit
 v2rayngseven
 v2rayngte
+v2rayngvpn
 v2rayngvpn_1
 v2rayngvpni
 v2rayngx
@@ -443,6 +451,7 @@ v2rayvpnchannel
 v2rayyngvpn
 v2reay
 v2ret
+v2rfa
 v2ry_proxy
 v2ryng01
 v2sayfree
@@ -450,6 +459,7 @@ v2source
 v2xay
 v2xnet
 v_2rey
+va3lsho
 vaddress
 vasl_bashim
 vaslchi_vpn
@@ -459,21 +469,17 @@ vconfing
 vegaas_vpn
 vip_vpn_2022
 vipoutline
-viproxys
 vipv2rayvip
 vistav2ray
-vless_config
-vlessconfig
+VlessConfig
 vmess_ir
 vmess_iran
 vmesskhodam
 vmessorg
-vmessprotocol
+VmessProtocol
 vmessvpn
 vp_n1
 vpn451
-vpn_443
-vpn_alex
 vpn_arta
 vpn_config_plus
 vpn_ioss
@@ -505,12 +511,14 @@ vpnon4u
 vpnowl
 vpnplusee_free
 vpnsal
-vpnsshocean
+vpnserverrr
 vpnstable
 vpnv2r4y
 vpnv2raytop
 vpnx1x
+vpnx44
 vtworay_wolf
+wancloudfa
 wbnet
 weepeen
 wxdy666
@@ -522,6 +530,39 @@ yebekhe
 zdyz2
 zedbaz_vpn
 zede_filteri
-zeshtobad
 zibanabz
+zvpnn
 zyzzzoao
+
+# 21.11.2026: превью выключено админами (t.me/s/* редиректит на
+# карточку), веб-слоем не читаются; сами каналы могут быть живы
+# (читает MTProto-слой). Возвращать при повторном включении превью.
+# ablnet7
+# alialma_gsm
+# alpha_v2ray_iran
+# armod_iran
+# bisto4_service
+# cov2ray
+# freeconfigsplus
+# freev2rayssr
+# freevpnatm
+# ghotb_scarf
+# heyatserver
+# imtproto
+# info_2it_channel
+# ip_cf_config
+# megavpn_link
+# meli_v2rayng
+# myvless
+# romax_vpn
+# shay_iranux
+# strongprotocol
+# v2ray_sub
+# v2rayn5
+# v2rayng_org
+# viproxys
+# vless_config
+# vpn_443
+# vpn_alex
+# vpnsshocean
+# zeshtobad

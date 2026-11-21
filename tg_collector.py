@@ -52,34 +52,40 @@ STATIC = [
     "/main/BLACK_VLESS_RUS.txt",
     "https://raw.githubusercontent.com/igareck/vpn-configs-for-russia"
     "/main/BLACK_VLESS_RUS_mobile.txt",
+    # kort0881: ротация+валидация под РФ ежедневно, ~6k нод.
+    "https://raw.githubusercontent.com/kort0881/vpn-vless-configs-russia"
+    "/main/output/vless.txt",
     "https://raw.githubusercontent.com/zieng2/wl/main/vless_universal.txt",
+    "https://raw.githubusercontent.com/FLAT447/v2ray-lists/main/BLACK_FULL.txt",
     "https://s3c3.001.gpucloud.ru/wlr/wl.txt",
     "https://etoneya.su/whitelist",
     "https://etoneya.su/1",
-    # GitVerse доступен из РФ напрямую, без прокси.
-    "https://gitverse.ru/api/repos/ru-wbl/wl/raw/branch/master/"
-    "KvRuVPN%2FKvRuVPN.txt",
-    "https://gitverse.ru/api/repos/MishaLan/MishaLan/raw/branch/master/"
-    "MishaLan.txt",
-    "https://gitverse.ru/api/repos/flaafix/AetrisVPN_Black_list/raw/"
-    "branch/master/configs.txt",
     # Самопроверяющиеся: гоняют трафик сами, брака почти нет.
     "https://raw.githubusercontent.com/sakha1370/OpenRay/main/output/"
     "all_valid_proxies.txt",
     "https://raw.githubusercontent.com/ALIILAPRO/v2rayNG-Config/main/sub.txt",
     "https://raw.githubusercontent.com/rtwo2/FastNodes/main/sub/verified.txt",
+    # ПО ГРИБИ: проверка alive каждые 3 ч через Actions, статистика
+    # открыта в deploy/debug.json.
+    "https://raw.githubusercontent.com/histeenn/VLESS-PO-GRIBI"
+    "/main/deploy/sub.txt",
+    # Xray-самопроверка, собирает из сотен репо.
+    "https://raw.githubusercontent.com/Delta-Kronecker/V2ray-Config"
+    "/main/config/all_configs.txt",
     # Живой TG-поток чужими руками: свои боты/аккаунты читают каналы
     # в реальном времени -- это те же первоисточники, только с доставкой.
     "https://raw.githubusercontent.com/Surfboardv2ray/TGParse/main/"
     "splitted/vless",
-    "https://raw.githubusercontent.com/ebrasha/free-v2ray-public-list"
-    "/main/vless_configs.txt",
+    # Mineral: самый большой TG-сбор (~10k нод), пуш ежедневно.
+    "https://raw.githubusercontent.com/LalatinaHub/Mineral/master/"
+    "result/nodes",
+    "https://raw.githubusercontent.com/MhdiTaheri/V2rayCollector"
+    "/main/sub/vless",
     "https://raw.githubusercontent.com/R3ZARAHIMI"
     "/tg-v2ray-configs-every2h/main/Original-Configs.txt",
     # Вторичные: небольшой объём, но лишними не бывают.
     "https://robin.victoriacross.ir",
     "https://sub.irys.dpdns.org/auto",
-    "https://rahi-eq3.pages.dev/api/configs?limit=all",
     "https://trojanvmess.pages.dev/cmcm?b64",
 ]
 
