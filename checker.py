@@ -173,6 +173,32 @@ EXTRA = [
     "/main/subscriptions/all.txt",
     "https://gist.githubusercontent.com/Darlene-Alderson-FSOCIETY"
     "/86fa5f2ad8ff17c182f4009c87c0911b/raw/HiroVPN_Telegram_RE_s_B.txt",
+    # Пополнение 22.11 (аудит просадки got: пул 161k почти не пополнялся,
+    # коллекторный слой на 97% пересекался с пулом; marg замерен против
+    # ПОЛНОГО пула, а не выхода коллектора). Ниже -- созданное/ожившее
+    # после 29.10; всем замер marg от 13.4k до 46, у всех пуши в день
+    # замера. Ariston: валидаторный пайплайн + TG@Ariston_CH, marg 13.4k.
+    "https://raw.githubusercontent.com/Edsel-Rahimi/Ariston"
+    "/data/by-protocol/vless.txt",
+    # q31r: ирано-мобильный коллектор (обход вайтлистов Irancell), 4.1k.
+    "https://raw.githubusercontent.com/q31r/Qode-free-v2ray-proxy"
+    "/main/nodes_full.txt",
+    # drifyconfigs: RU, авто-чек xray, 1.2k.
+    "https://raw.githubusercontent.com/HotDrify/drifyconfigs"
+    "/master/subscribes/nonsort.txt",
+    # alireza786786: свой TG-харвест (сам файл заморожен 26.10, marg жив).
+    "https://raw.githubusercontent.com/alireza786786/Free-V2ray-Configs"
+    "/main/data/telegram_configs.txt",
+    # happ-tmn: RU/TG, обновление каждые 3 ч.
+    "https://raw.githubusercontent.com/happ-tmn/happ-tmn-subscriptions"
+    "/main/sub/vless.txt",
+    # ebrasha удалён 24.10, но воскрес зеркалом mirrorrepomagic:
+    # ежедневный автоапдейт тем же конвейером.
+    "https://raw.githubusercontent.com/mirrorrepomagic"
+    "/free-v2ray-public-list/main/vless_configs.txt",
+    # mheidari98/.proxy ожил как самостоятельный ежечасный краулер с
+    # health-трекингом (вырезан 29.10 как копия шарда 10 -- это уже не она).
+    "https://raw.githubusercontent.com/mheidari98/.proxy/main/vless",
 ]
 # Ревизия 14.09: половина классики отдаёт 404. Экосистема переезжает --
 # источники стоит переверять раз в пару месяцев.
